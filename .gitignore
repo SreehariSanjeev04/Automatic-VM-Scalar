@@ -1,0 +1,5 @@
+/build/
+/vm/local/
+*.qcow2
+*.img
+*.iso
