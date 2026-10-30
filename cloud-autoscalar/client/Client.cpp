@@ -1,12 +1,14 @@
 #include "LoadGenerator.hpp"
 #include "Client.hpp"
 #include "httplib.h"
-Client::Client(int port, int mode) : port(port), mode(mode) {}
+#include "Constant.hpp"
 
-void Client::startRegistryServer(int port) {
-    httplib::Server svr;
+Client::Client(int mode) : mode(mode) {}
 
-    svr.Post("/register", [](const httplib::Request &req, httplib::Response &res) {
-        
-    });
+void Client::generateTraffic() {
+    if (mode == Mode::low) {
+        LoadGenerator::generateLowTraffic();
+    } else {
+        LoadGenerator::generateHighTraffic();
+    }
 }

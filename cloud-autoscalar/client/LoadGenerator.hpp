@@ -1,8 +1,10 @@
-#pragma once
+#ifndef LOADGENERATOR_H
+#define LOADGENERATOR_H
 
 class LoadGenerator {
     public: 
-        virtual void generateHighTraffic();
-        virtual void generateLowTraffic();
+        static void generateHighTraffic();
+        static void generateLowTraffic();
 };
 
+#endif

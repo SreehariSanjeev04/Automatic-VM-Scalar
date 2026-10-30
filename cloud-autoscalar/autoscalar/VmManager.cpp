@@ -3,6 +3,9 @@
 
 #include <algorithm>
 
+std::vector<std::string> VmManager::clientIPs;
+std::mutex VmManager::registry_mutex;
+
 void VmManager::registerVM(const std::string &ip)
 {
     std::lock_guard<std::mutex> lock(registry_mutex);
@@ -34,4 +37,16 @@ void VmManager::deregisterVM(const std::string &ip)
         clientIPs.erase(it);
     }
     LOG_INFO("Removed VM with IP address %s\n", ip.c_str());
+}
+
+int VmManager::getNumOfVMs(){
+    std::lock_guard<std::mutex> lock(registry_mutex);
+    return static_cast<int>(clientIPs.size());
+}
+
+std::optional<std::string> VmManager::getVMIpAtIndex(int index){
+    std::lock_guard<std::mutex> lock(registry_mutex);
+    if (index < 0 || index >= static_cast<int>(clientIPs.size()))
+        return std::nullopt;
+    return clientIPs.at(index);
 }
