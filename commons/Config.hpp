@@ -25,6 +25,7 @@ struct Config
 
     struct Scaling
     {
+        bool scaleInEnabled = true;
         double scaleOutCpuThreshold = 75.0;
         double scaleInCpuThreshold = 25.0;
         unsigned int requiredOverloadCount = 3;
@@ -49,10 +50,16 @@ struct Config
         unsigned int highThreads = 1;
         unsigned int highRequestsPerThread = 1;
         int highValue = 20;
+        unsigned int highRequestDelayMilliseconds = 1000;
         unsigned int lowRequestsPerThread = 1;
         int lowValue = 2;
         unsigned int lowRequestDelayMilliseconds = 2000;
     } traffic;
+
+    struct Metrics
+    {
+        std::string filePath = "results/vm_metrics.csv";
+    } metrics;
 
     static Config load(const std::string &path);
 };

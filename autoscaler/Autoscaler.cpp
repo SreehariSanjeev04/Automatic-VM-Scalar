@@ -10,6 +10,72 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+
+#include <fstream>
+#include <filesystem>
+#include <mutex>
+
+static void recordVMMetrics(
+    const VMStats &stats,
+    size_t replicaCount,
+    const std::string &filePath)
+{
+    static std::mutex metricsMutex;
+    std::lock_guard<std::mutex> lock(metricsMutex);
+
+    const std::filesystem::path metricsPath(filePath);
+    const auto parentDirectory = metricsPath.parent_path();
+    std::error_code error;
+    if (!parentDirectory.empty())
+    {
+        std::filesystem::create_directories(parentDirectory, error);
+    }
+
+    if (error)
+    {
+        LOG_ERROR(
+            "Could not create metrics directory: %s",
+            error.message().c_str());
+        return;
+    }
+
+    bool writeHeader =
+        !std::filesystem::exists(metricsPath) ||
+        std::filesystem::file_size(metricsPath, error) == 0;
+
+    if (error)
+    {
+        LOG_ERROR(
+            "Could not inspect metrics file: %s",
+            error.message().c_str());
+        return;
+    }
+
+    std::ofstream file(metricsPath, std::ios::app);
+
+    if (!file)
+    {
+        LOG_ERROR("Could not open VM metrics CSV");
+        return;
+    }
+
+    if (writeHeader)
+    {
+        file << "timestamp_ms,vm_name,cpu_percent,replica_count\n";
+    }
+
+    auto now = std::chrono::system_clock::now();
+
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now.time_since_epoch())
+                         .count();
+
+    file << timestamp << ","
+         << stats.name << ","
+         << stats.cpuUsage << ","
+         << replicaCount << "\n";
+}
+
 Autoscaler::Autoscaler(
     virConnectPtr connection,
     VMMonitor &monitor,
@@ -221,7 +287,8 @@ void Autoscaler::evaluate(const VMStats &stats)
             vmOverloadCounts_[stats.name],
             requiredOverloadCount_);
     }
-    else if (stats.cpuUsage < config_.scaling.scaleInCpuThreshold)
+    else if (config_.scaling.scaleInEnabled &&
+             stats.cpuUsage < config_.scaling.scaleInCpuThreshold)
     {
         if (vmLowLoadCounts_[stats.name] < requiredLowLoadCount_)
         {
@@ -250,6 +317,11 @@ void Autoscaler::monitorAllVMs()
         {
             VMStats stats = monitor_.monitor(vmName);
             evaluate(stats);
+
+            recordVMMetrics(
+                stats,
+                activeVMs_.size(),
+                config_.metrics.filePath);
         }
         catch (const std::exception &e)
         {
@@ -288,7 +360,7 @@ void Autoscaler::monitorAllVMs()
     }
 
     // Scale-in decision
-    if (currentReplicas_ <= 1)
+    if (!config_.scaling.scaleInEnabled || currentReplicas_ <= 1)
     {
         return;
     }

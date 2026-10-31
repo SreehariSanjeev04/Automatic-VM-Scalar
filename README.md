@@ -10,6 +10,23 @@ The repository builds two programs:
 - `cloud_autoscalar`: the orchestrator, load balancer, VM monitor, and scaler.
 - `cloud_autoscalar_client`: an interactive traffic-generation CLI.
 
+## Metrics
+
+Run the plotting script after collecting metrics:
+
+```bash
+venv/bin/python plot_metrics.py
+```
+
+The generated graphs are saved under `results/plots/`:
+
+![VM CPU utilization](./images/vm_cpu.png)
+
+![Request latency and throughput](./images/request_metrics.png)
+
+Runtime CSV files and generated plots in `results/` are local experiment
+artifacts and are excluded from version control.
+
 ## Architecture
 
 ```text
@@ -130,6 +147,31 @@ These values, along with VM sizing, replica limits, scaling thresholds,
 timeouts, and traffic volume, are configured in
 [autoscaler.config](./autoscaler.config). The file is JSON and can be copied
 and edited for another environment.
+
+Metrics are written to the configured `metrics.file_path`. The default is
+`results/vm_metrics.csv`, relative to the orchestrator's working directory.
+Set an absolute path or another relative path when needed:
+
+```json
+"metrics": {
+  "file_path": "/var/lib/cloud-autoscalar/vm_metrics.csv"
+}
+```
+
+High-load requests wait for `traffic.high_request_delay_milliseconds` between
+requests in each client thread. The default is 1000 milliseconds (one second).
+
+To disable automatic scale-in while keeping scale-out enabled, set
+`scale_in_enabled` to `false` in the `scaling` section:
+
+```json
+"scaling": {
+  "scale_in_enabled": false
+}
+```
+
+Set it to `true` to enable scale-in again. The setting is read when the
+orchestrator starts.
 
 The base image must be an existing libvirt-managed volume in the `images`
 storage pool. The pool must be active:
@@ -327,6 +369,8 @@ The autoscaler checks each active VM every two seconds:
 - CPU below `25%` increments its low-load counter.
 - Five consecutive low-load observations across the active VMs trigger
   scale-in.
+- Set `scaling.scale_in_enabled` to `false` to disable scale-in. Scale-out
+  remains enabled.
 - The initial VM named `vm` is never removed.
 
 Scale-out creates a replica, waits for its DHCP address, waits for its guest

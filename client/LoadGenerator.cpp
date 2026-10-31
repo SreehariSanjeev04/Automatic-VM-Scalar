@@ -65,6 +65,13 @@ void LoadGenerator::generateHighTraffic()
                     config.network.loadBalancerPath,
                     payload.dump(),
                     "application/json");
+
+                if (req + 1 < static_cast<int>(config.traffic.highRequestsPerThread))
+                {
+                    std::this_thread::sleep_for(
+                        std::chrono::milliseconds(
+                            config.traffic.highRequestDelayMilliseconds));
+                }
             } });
     }
 
@@ -105,12 +112,11 @@ void LoadGenerator::generateLowTraffic()
             payload.dump(),
             "application/json");
 
-        for (unsigned int wait = 0;
-             wait < config.traffic.lowRequestDelayMilliseconds / 100 &&
-             !stopRequested.load();
-             wait++)
+        if (req + 1 < static_cast<int>(config.traffic.lowRequestsPerThread))
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(
+                    config.traffic.lowRequestDelayMilliseconds));
         }
     }
     running.store(false);

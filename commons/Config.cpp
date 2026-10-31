@@ -40,11 +40,13 @@ void validate(const Config &config)
         config.network.loadBalancerPath.empty() ||
         config.network.connectionTimeoutSeconds == 0 ||
         config.network.requestTimeoutSeconds == 0 ||
+        config.metrics.filePath.empty() ||
         config.scaling.monitorIntervalSeconds == 0 ||
         config.scaling.requiredOverloadCount == 0 ||
         config.scaling.requiredLowLoadCount == 0 ||
         config.traffic.highThreads == 0 ||
         config.traffic.highRequestsPerThread == 0 ||
+        config.traffic.highRequestDelayMilliseconds == 0 ||
         config.traffic.lowRequestsPerThread == 0 ||
         config.traffic.lowRequestDelayMilliseconds == 0)
     {
@@ -86,6 +88,7 @@ Config Config::load(const std::string &path)
 
     readValue(scaling, "scale_out_cpu_threshold", config.scaling.scaleOutCpuThreshold);
     readValue(scaling, "scale_in_cpu_threshold", config.scaling.scaleInCpuThreshold);
+    readValue(scaling, "scale_in_enabled", config.scaling.scaleInEnabled);
     readValue(scaling, "required_overload_count", config.scaling.requiredOverloadCount);
     readValue(scaling, "required_low_load_count", config.scaling.requiredLowLoadCount);
     readValue(scaling, "monitor_interval_seconds", config.scaling.monitorIntervalSeconds);
@@ -102,9 +105,13 @@ Config Config::load(const std::string &path)
     readValue(traffic, "high_threads", config.traffic.highThreads);
     readValue(traffic, "high_requests_per_thread", config.traffic.highRequestsPerThread);
     readValue(traffic, "high_value", config.traffic.highValue);
+    readValue(traffic, "high_request_delay_milliseconds", config.traffic.highRequestDelayMilliseconds);
     readValue(traffic, "low_requests_per_thread", config.traffic.lowRequestsPerThread);
     readValue(traffic, "low_value", config.traffic.lowValue);
     readValue(traffic, "low_request_delay_milliseconds", config.traffic.lowRequestDelayMilliseconds);
+
+    const auto &metrics = document.value("metrics", json::object());
+    readValue(metrics, "file_path", config.metrics.filePath);
 
     validate(config);
     return config;

@@ -4,6 +4,11 @@
 #include "VMManager.hpp"
 #include "json.hpp"
 
+#include <chrono>
+#include <fstream>
+#include <filesystem>
+#include <mutex>
+
 using json = nlohmann::json;
 
 LoadBalancer::LoadBalancer(const Config &config)
@@ -45,6 +50,62 @@ void LoadBalancer::startLoadBalancer()
     svr.listen(config_.network.loadBalancerBindAddress, port);
 }
 
+static void recordRequestMetrics(
+    const std::string &backendIP,
+    double latencyMs,
+    bool success,
+    int statusCode)
+{
+    static std::mutex metricsMutex;
+    std::lock_guard<std::mutex> lock(metricsMutex);
+
+    std::error_code error;
+    std::filesystem::create_directories("results", error);
+
+    if (error)
+    {
+        LOG_ERROR("Could not create results directory");
+        return;
+    }
+
+    const std::string filename = "results/request_metrics.csv";
+
+    bool writeHeader = true;
+
+    if (std::filesystem::exists(filename, error) && !error)
+    {
+        auto size = std::filesystem::file_size(filename, error);
+
+        if (!error && size > 0)
+            writeHeader = false;
+    }
+
+    std::ofstream file(filename, std::ios::app);
+
+    if (!file)
+    {
+        LOG_ERROR("Could not open request metrics CSV");
+        return;
+    }
+
+    if (writeHeader)
+    {
+        file << "timestamp_ms,backend_ip,latency_ms,success,http_status\n";
+    }
+
+    auto now = std::chrono::system_clock::now();
+
+    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now.time_since_epoch())
+                         .count();
+
+    file << timestamp << ","
+         << backendIP << ","
+         << latencyMs << ","
+         << (success ? 1 : 0) << ","
+         << statusCode << "\n";
+}
+
 bool LoadBalancer::distributeWork(int value)
 {
     int size = VMManager::getNumOfVMs();
@@ -58,7 +119,17 @@ bool LoadBalancer::distributeWork(int value)
     int nextIndex;
     {
         std::lock_guard<std::mutex> lock(index_mutex);
+
+        size = VMManager::getNumOfVMs();
+
+        if (size == 0)
+        {
+            LOG_ERROR("No VMs are available to distribute the traffic.");
+            return false;
+        }
+
         nextIndex = (prevIndex + 1) % size;
+        prevIndex = nextIndex;
     }
     std::optional<std::string> vmIP = VMManager::getVMIpAtIndex(nextIndex);
 
@@ -68,6 +139,7 @@ bool LoadBalancer::distributeWork(int value)
         return false;
     }
 
+    LOG_INFO("Selected backend: %s", vmIP.value().c_str());
     httplib::Client client(vmIP.value(), config_.vm.guestPort);
     client.set_connection_timeout(
         config_.network.connectionTimeoutSeconds, 0);
@@ -77,26 +149,43 @@ bool LoadBalancer::distributeWork(int value)
         config_.network.requestTimeoutSeconds, 0);
 
     LOG_INFO("Sending work to VM with IP %s", vmIP.value().c_str());
-    if (auto res =     client.Get(
+
+    auto requestStart = std::chrono::steady_clock::now();
+
+    auto res = client.Get(
         config_.vm.workPath + "?n=" + std::to_string(value));
-        res && res->status >= 200 && res->status < 300)
+
+    auto requestEnd = std::chrono::steady_clock::now();
+
+    double latencyMs =
+        std::chrono::duration<double, std::milli>(
+            requestEnd - requestStart)
+            .count();
+
+    bool success = res && res->status >= 200 && res->status < 300;
+    int statusCode = res ? res->status : 0;
+
+    recordRequestMetrics(
+        vmIP.value(),
+        latencyMs,
+        success,
+        statusCode);
+
+    if (success)
     {
         LOG_INFO("Response status: %d", res->status);
-        std::lock_guard<std::mutex> lock(index_mutex);
-        prevIndex = nextIndex;
 
         return true;
     }
     else
     {
         if (res)
-        {
             LOG_ERROR("Backend returned status: %d", res->status);
-        }
         else
-        {
-            LOG_ERROR("Request failed: %s", httplib::to_string(res.error()).c_str());
-        }
+            LOG_ERROR(
+                "Request failed: %s",
+                httplib::to_string(res.error()).c_str());
+
         return false;
     }
 }

@@ -1,5 +1,9 @@
 /build/
+/results/
 /vm/local/
 *.qcow2
 *.img
 *.iso
+venv
+.vscode
+__pycache__
