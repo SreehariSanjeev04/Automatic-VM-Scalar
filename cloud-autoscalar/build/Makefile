@@ -129,6 +129,150 @@ cloud_autoscalar/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/build
 .PHONY : cloud_autoscalar/fast
 
+autoscalar/AutoScaler.o: autoscalar/AutoScaler.cpp.o
+.PHONY : autoscalar/AutoScaler.o
+
+# target to build an object file
+autoscalar/AutoScaler.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o
+.PHONY : autoscalar/AutoScaler.cpp.o
+
+autoscalar/AutoScaler.i: autoscalar/AutoScaler.cpp.i
+.PHONY : autoscalar/AutoScaler.i
+
+# target to preprocess a source file
+autoscalar/AutoScaler.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.i
+.PHONY : autoscalar/AutoScaler.cpp.i
+
+autoscalar/AutoScaler.s: autoscalar/AutoScaler.cpp.s
+.PHONY : autoscalar/AutoScaler.s
+
+# target to generate assembly for a file
+autoscalar/AutoScaler.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.s
+.PHONY : autoscalar/AutoScaler.cpp.s
+
+autoscalar/DiskManager.o: autoscalar/DiskManager.cpp.o
+.PHONY : autoscalar/DiskManager.o
+
+# target to build an object file
+autoscalar/DiskManager.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o
+.PHONY : autoscalar/DiskManager.cpp.o
+
+autoscalar/DiskManager.i: autoscalar/DiskManager.cpp.i
+.PHONY : autoscalar/DiskManager.i
+
+# target to preprocess a source file
+autoscalar/DiskManager.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.i
+.PHONY : autoscalar/DiskManager.cpp.i
+
+autoscalar/DiskManager.s: autoscalar/DiskManager.cpp.s
+.PHONY : autoscalar/DiskManager.s
+
+# target to generate assembly for a file
+autoscalar/DiskManager.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.s
+.PHONY : autoscalar/DiskManager.cpp.s
+
+autoscalar/DomainXMLBuilder.o: autoscalar/DomainXMLBuilder.cpp.o
+.PHONY : autoscalar/DomainXMLBuilder.o
+
+# target to build an object file
+autoscalar/DomainXMLBuilder.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o
+.PHONY : autoscalar/DomainXMLBuilder.cpp.o
+
+autoscalar/DomainXMLBuilder.i: autoscalar/DomainXMLBuilder.cpp.i
+.PHONY : autoscalar/DomainXMLBuilder.i
+
+# target to preprocess a source file
+autoscalar/DomainXMLBuilder.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.i
+.PHONY : autoscalar/DomainXMLBuilder.cpp.i
+
+autoscalar/DomainXMLBuilder.s: autoscalar/DomainXMLBuilder.cpp.s
+.PHONY : autoscalar/DomainXMLBuilder.s
+
+# target to generate assembly for a file
+autoscalar/DomainXMLBuilder.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.s
+.PHONY : autoscalar/DomainXMLBuilder.cpp.s
+
+autoscalar/LibvirtConnection.o: autoscalar/LibvirtConnection.cpp.o
+.PHONY : autoscalar/LibvirtConnection.o
+
+# target to build an object file
+autoscalar/LibvirtConnection.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o
+.PHONY : autoscalar/LibvirtConnection.cpp.o
+
+autoscalar/LibvirtConnection.i: autoscalar/LibvirtConnection.cpp.i
+.PHONY : autoscalar/LibvirtConnection.i
+
+# target to preprocess a source file
+autoscalar/LibvirtConnection.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.i
+.PHONY : autoscalar/LibvirtConnection.cpp.i
+
+autoscalar/LibvirtConnection.s: autoscalar/LibvirtConnection.cpp.s
+.PHONY : autoscalar/LibvirtConnection.s
+
+# target to generate assembly for a file
+autoscalar/LibvirtConnection.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.s
+.PHONY : autoscalar/LibvirtConnection.cpp.s
+
+autoscalar/VMCloner.o: autoscalar/VMCloner.cpp.o
+.PHONY : autoscalar/VMCloner.o
+
+# target to build an object file
+autoscalar/VMCloner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o
+.PHONY : autoscalar/VMCloner.cpp.o
+
+autoscalar/VMCloner.i: autoscalar/VMCloner.cpp.i
+.PHONY : autoscalar/VMCloner.i
+
+# target to preprocess a source file
+autoscalar/VMCloner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.i
+.PHONY : autoscalar/VMCloner.cpp.i
+
+autoscalar/VMCloner.s: autoscalar/VMCloner.cpp.s
+.PHONY : autoscalar/VMCloner.s
+
+# target to generate assembly for a file
+autoscalar/VMCloner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.s
+.PHONY : autoscalar/VMCloner.cpp.s
+
+autoscalar/VMMonitor.o: autoscalar/VMMonitor.cpp.o
+.PHONY : autoscalar/VMMonitor.o
+
+# target to build an object file
+autoscalar/VMMonitor.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o
+.PHONY : autoscalar/VMMonitor.cpp.o
+
+autoscalar/VMMonitor.i: autoscalar/VMMonitor.cpp.i
+.PHONY : autoscalar/VMMonitor.i
+
+# target to preprocess a source file
+autoscalar/VMMonitor.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.i
+.PHONY : autoscalar/VMMonitor.cpp.i
+
+autoscalar/VMMonitor.s: autoscalar/VMMonitor.cpp.s
+.PHONY : autoscalar/VMMonitor.s
+
+# target to generate assembly for a file
+autoscalar/VMMonitor.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cloud_autoscalar.dir/build.make CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.s
+.PHONY : autoscalar/VMMonitor.cpp.s
+
 autoscalar/VmManager.o: autoscalar/VmManager.cpp.o
 .PHONY : autoscalar/VmManager.o
 
@@ -306,6 +450,24 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... cloud_autoscalar"
+	@echo "... autoscalar/AutoScaler.o"
+	@echo "... autoscalar/AutoScaler.i"
+	@echo "... autoscalar/AutoScaler.s"
+	@echo "... autoscalar/DiskManager.o"
+	@echo "... autoscalar/DiskManager.i"
+	@echo "... autoscalar/DiskManager.s"
+	@echo "... autoscalar/DomainXMLBuilder.o"
+	@echo "... autoscalar/DomainXMLBuilder.i"
+	@echo "... autoscalar/DomainXMLBuilder.s"
+	@echo "... autoscalar/LibvirtConnection.o"
+	@echo "... autoscalar/LibvirtConnection.i"
+	@echo "... autoscalar/LibvirtConnection.s"
+	@echo "... autoscalar/VMCloner.o"
+	@echo "... autoscalar/VMCloner.i"
+	@echo "... autoscalar/VMCloner.s"
+	@echo "... autoscalar/VMMonitor.o"
+	@echo "... autoscalar/VMMonitor.i"
+	@echo "... autoscalar/VMMonitor.s"
 	@echo "... autoscalar/VmManager.o"
 	@echo "... autoscalar/VmManager.i"
 	@echo "... autoscalar/VmManager.s"

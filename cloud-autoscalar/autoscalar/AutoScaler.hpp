@@ -1,0 +1,63 @@
+#ifndef AUTOSCALER_HPP
+#define AUTOSCALER_HPP
+
+#include "VMMonitor.hpp"
+#include "VMCloner.hpp"
+
+#include <libvirt/libvirt.h>
+
+#include <string>
+#include <chrono>
+#include <vector>
+#include <unordered_map>
+
+class Autoscaler
+{
+private:
+    std::string loadBalancerIP_;
+    int loadBalancerPort_;
+    virConnectPtr connection_;
+
+    VMMonitor &monitor_;
+    VMCloner &cloner_;
+
+    std::string baseImage_;
+
+    unsigned int vcpus_;
+    unsigned long memory_;
+
+    unsigned int currentReplicas_;
+    unsigned int maxReplicas_;
+
+    unsigned int overloadCount_;
+    double cpuThreshold_;
+    unsigned int requiredOverloadCount_;
+
+    bool scalingInProgress_;
+
+    std::chrono::steady_clock::time_point startTime_;
+    std::chrono::seconds warmupPeriod_;
+
+    std::vector<std::string> activeVMs_;
+    std::unordered_map<std::string, unsigned int> vmOverloadCounts_;
+
+    std::string getVMIPv4(const std::string &vmName);
+    bool waitForServer(const std::string &ip, int port);
+    void scaleOut();
+
+public:
+    Autoscaler(
+        virConnectPtr connection,
+        VMMonitor &monitor,
+        VMCloner &cloner,
+        const std::string &baseImage,
+        unsigned int vcpus,
+        unsigned long memory,
+        unsigned int initialReplicas = 1,
+        unsigned int maxReplicas = 2);
+
+    void evaluate(const VMStats &stats);
+    void monitorAllVMs();
+};
+
+#endif

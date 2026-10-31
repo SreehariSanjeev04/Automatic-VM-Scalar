@@ -22,6 +22,8 @@ add_executable(cloud_autoscalar
     orchastretor/Orchestrator.cpp
     server/LoadBalancer.cpp
     server/RegistryServer.cpp
+    autoscalar/VMMonitor.cpp
+    autoscalar/AutoScaler.cpp
 )
 
 target_include_directories(cloud_autoscalar PRIVATE

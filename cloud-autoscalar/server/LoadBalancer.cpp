@@ -42,10 +42,12 @@ void LoadBalancer::startLoadBalancer()
     svr.listen("0.0.0.0", port);
 }
 
-bool LoadBalancer::distributeWork(int value) {
+bool LoadBalancer::distributeWork(int value)
+{
     int size = VmManager::getNumOfVMs();
 
-    if (size == 0) {
+    if (size == 0)
+    {
         LOG_ERROR("No VMs are available to distribute the traffic.");
         return false;
     }
@@ -57,7 +59,8 @@ bool LoadBalancer::distributeWork(int value) {
     }
     std::optional<std::string> vmIP = VmManager::getVMIpAtIndex(nextIndex);
 
-    if (!vmIP.has_value()) {
+    if (!vmIP.has_value())
+    {
         LOG_ERROR("No VMs are available to distribute the traffic.");
         return false;
     }
@@ -65,16 +68,22 @@ bool LoadBalancer::distributeWork(int value) {
     httplib::Client client(vmIP.value(), 8080);
 
     if (auto res = client.Get("/work?value=" + std::to_string(value));
-        res && res->status >= 200 && res->status < 300) {
+        res && res->status >= 200 && res->status < 300)
+    {
         LOG_INFO("Response status: %d", res->status);
         std::lock_guard<std::mutex> lock(index_mutex);
         prevIndex = nextIndex;
 
         return true;
-    } else {
-        if (res) {
+    }
+    else
+    {
+        if (res)
+        {
             LOG_ERROR("Backend returned status: %d", res->status);
-        } else {
+        }
+        else
+        {
             LOG_ERROR("Request failed: %s", httplib::to_string(res.error()).c_str());
         }
         return false;

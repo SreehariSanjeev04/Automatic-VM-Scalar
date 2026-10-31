@@ -152,8 +152,53 @@ CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o: \
  /home/sree/Cloud/cloud-autoscalar/client/Client.hpp \
  /home/sree/Cloud/cloud-autoscalar/client/LoadGenerator.hpp \
  /home/sree/Cloud/cloud-autoscalar/commons/Constant.hpp \
- /usr/include/c++/12/thread /usr/include/c++/12/stop_token \
- /usr/include/c++/12/atomic /usr/include/c++/12/bits/atomic_base.h \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/LibvirtConnection.hpp \
+ /usr/include/libvirt/libvirt.h /usr/include/libvirt/libvirt-common.h \
+ /usr/include/libvirt/libvirt-host.h \
+ /usr/include/libvirt/libvirt-domain.h \
+ /usr/include/libvirt/libvirt-domain-checkpoint.h \
+ /usr/include/libvirt/libvirt-domain-snapshot.h \
+ /usr/include/libvirt/libvirt-event.h \
+ /usr/include/libvirt/libvirt-interface.h \
+ /usr/include/libvirt/libvirt-network.h \
+ /usr/include/libvirt/libvirt-nodedev.h \
+ /usr/include/libvirt/libvirt-nwfilter.h \
+ /usr/include/libvirt/libvirt-secret.h \
+ /usr/include/libvirt/libvirt-storage.h \
+ /usr/include/libvirt/libvirt-stream.h \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/VMCloner.hpp \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/DiskManager.hpp \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/DomainXMLBuilder.hpp \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.hpp \
+ /usr/include/c++/12/unordered_map \
+ /usr/include/c++/12/ext/aligned_buffer.h \
+ /usr/include/c++/12/bits/hashtable.h \
+ /usr/include/c++/12/bits/hashtable_policy.h \
+ /usr/include/c++/12/bits/enable_special_members.h \
+ /usr/include/c++/12/bits/node_handle.h \
+ /usr/include/c++/12/bits/unordered_map.h \
+ /usr/include/c++/12/bits/erase_if.h \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/AutoScaler.hpp \
+ /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.hpp \
+ /usr/include/c++/12/chrono /usr/include/c++/12/sstream \
+ /usr/include/c++/12/istream /usr/include/c++/12/ios \
+ /usr/include/c++/12/bits/ios_base.h \
+ /usr/include/c++/12/bits/locale_classes.h \
+ /usr/include/c++/12/bits/locale_classes.tcc \
+ /usr/include/c++/12/streambuf /usr/include/c++/12/bits/streambuf.tcc \
+ /usr/include/c++/12/bits/basic_ios.h \
+ /usr/include/c++/12/bits/locale_facets.h /usr/include/c++/12/cwctype \
+ /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
+ /usr/include/x86_64-linux-gnu/c++/12/bits/ctype_base.h \
+ /usr/include/c++/12/bits/streambuf_iterator.h \
+ /usr/include/x86_64-linux-gnu/c++/12/bits/ctype_inline.h \
+ /usr/include/c++/12/bits/locale_facets.tcc \
+ /usr/include/c++/12/bits/basic_ios.tcc /usr/include/c++/12/ostream \
+ /usr/include/c++/12/bits/ostream.tcc \
+ /usr/include/c++/12/bits/istream.tcc \
+ /usr/include/c++/12/bits/sstream.tcc /usr/include/c++/12/thread \
+ /usr/include/c++/12/stop_token /usr/include/c++/12/atomic \
+ /usr/include/c++/12/bits/atomic_base.h \
  /usr/include/c++/12/bits/atomic_lockfree_defines.h \
  /usr/include/c++/12/bits/atomic_wait.h /usr/include/c++/12/climits \
  /usr/lib/gcc/x86_64-linux-gnu/12/include/limits.h \
@@ -176,22 +221,10 @@ CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o: \
  /usr/include/x86_64-linux-gnu/asm/unistd_64.h \
  /usr/include/x86_64-linux-gnu/bits/syscall.h \
  /usr/include/c++/12/bits/std_thread.h \
- /usr/include/c++/12/bits/unique_ptr.h /usr/include/c++/12/ostream \
- /usr/include/c++/12/ios /usr/include/c++/12/bits/ios_base.h \
- /usr/include/c++/12/bits/locale_classes.h \
- /usr/include/c++/12/bits/locale_classes.tcc \
- /usr/include/c++/12/streambuf /usr/include/c++/12/bits/streambuf.tcc \
- /usr/include/c++/12/bits/basic_ios.h \
- /usr/include/c++/12/bits/locale_facets.h /usr/include/c++/12/cwctype \
- /usr/include/wctype.h /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \
- /usr/include/x86_64-linux-gnu/c++/12/bits/ctype_base.h \
- /usr/include/c++/12/bits/streambuf_iterator.h \
- /usr/include/x86_64-linux-gnu/c++/12/bits/ctype_inline.h \
- /usr/include/c++/12/bits/locale_facets.tcc \
- /usr/include/c++/12/bits/basic_ios.tcc \
- /usr/include/c++/12/bits/ostream.tcc /usr/include/c++/12/semaphore \
+ /usr/include/c++/12/bits/unique_ptr.h /usr/include/c++/12/semaphore \
  /usr/include/c++/12/bits/semaphore_base.h \
  /usr/include/c++/12/bits/atomic_timed_wait.h \
  /usr/include/c++/12/bits/this_thread_sleep.h \
  /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/semaphore.h \
- /usr/include/x86_64-linux-gnu/bits/semaphore.h
+ /usr/include/x86_64-linux-gnu/bits/semaphore.h \
+ /usr/include/c++/12/iostream

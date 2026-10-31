@@ -6,46 +6,52 @@
 #include "Constant.hpp"
 #include "LibvirtConnection.hpp"
 #include "VMCloner.hpp"
+#include "VMMonitor.hpp"
+#include "AutoScaler.hpp"
 
 #include <thread>
+#include <iostream>
 
-void Orchestrator::run() {
-    // Client client(Mode::high);
-    // LoadBalancer loadBalancer(8080);
-    // RegistryServer registryServer(8000);
-    
-    // std::thread clientThread([&client]() {
-    //     client.generateTraffic();
-    // });
-
-    // std::thread loadBalancerThread([&loadBalancer]() {
-    //     loadBalancer.startLoadBalancer();
-    // });
-
-    // std::thread registryServerThread([&registryServer]() {
-    //     registryServer.startRegistryServer();
-    // });
-
-    // clientThread.join();
-    // loadBalancerThread.join();
-    // registryServerThread.join();
-    
+void Orchestrator::run()
+{
     try {
-        LibvirtConnection conn;
+        LibvirtConnection connection;
+
+        VMMonitor monitor(connection.get());
+
         VMCloner cloner(
-            conn.get(),
+            connection.get(),
             "images"
         );
-        if (cloner.clone(
-            "vm-2",
-            "/mnt/LinuxData/images/base.qcow2",
-            1,
-            1024
-        )) {
-            LOG_INFO("VM created successfully");
-        }
 
-    } catch (const std::exception& e) {
-        LOG_ERROR("Error: %s", e.what());
+        LoadBalancer loadBalancer(8080);
+
+        Autoscaler autoscaler(
+            connection.get(),
+            monitor,
+            cloner,
+            "/mnt/LinuxData/images/base.qcow2",
+            2, 2048
+        );
+
+        std::thread loadBalancerThread([&]() {
+            loadBalancer.startLoadBalancer();
+        });
+
+        std::thread autoscalerThread([&]() {
+            while (true) {
+                autoscaler.monitorAllVMs();
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            }
+        });
+
+        loadBalancerThread.join();
+        autoscalerThread.join();
     }
+    catch (const std::exception& e) {
+        std::cerr << "[ORCHESTRATOR] " << e.what() << '\n';
+        return;
+    }
+
+    return;
 }

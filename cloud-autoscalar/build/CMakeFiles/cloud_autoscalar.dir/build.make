@@ -83,10 +83,52 @@ CMakeFiles/cloud_autoscalar.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/main.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/main.cpp -o CMakeFiles/cloud_autoscalar.dir/main.cpp.s
 
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/DiskManager.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/DiskManager.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/DiskManager.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/DiskManager.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.s
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/DomainXMLBuilder.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/DomainXMLBuilder.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/DomainXMLBuilder.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/DomainXMLBuilder.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.s
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/LibvirtConnection.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/LibvirtConnection.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/LibvirtConnection.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/LibvirtConnection.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.s
+
 CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/VmManager.cpp
 CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/VmManager.cpp
 
 CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.i: cmake_force
@@ -97,10 +139,24 @@ CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/VmManager.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.s
 
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/VMCloner.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/VMCloner.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/VMCloner.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/VMCloner.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.s
+
 CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o: /home/sree/Cloud/cloud-autoscalar/client/Client.cpp
 CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o -c /home/sree/Cloud/cloud-autoscalar/client/Client.cpp
 
 CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.i: cmake_force
@@ -114,7 +170,7 @@ CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.s: cmake_force
 CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o: /home/sree/Cloud/cloud-autoscalar/client/LoadGenerator.cpp
 CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o -c /home/sree/Cloud/cloud-autoscalar/client/LoadGenerator.cpp
 
 CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.i: cmake_force
@@ -128,7 +184,7 @@ CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.s: cmake_force
 CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o: /home/sree/Cloud/cloud-autoscalar/orchastretor/Orchestrator.cpp
 CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o -c /home/sree/Cloud/cloud-autoscalar/orchastretor/Orchestrator.cpp
 
 CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.i: cmake_force
@@ -142,7 +198,7 @@ CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.s: cmake_force
 CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o: /home/sree/Cloud/cloud-autoscalar/server/LoadBalancer.cpp
 CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building CXX object CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o -c /home/sree/Cloud/cloud-autoscalar/server/LoadBalancer.cpp
 
 CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.i: cmake_force
@@ -156,7 +212,7 @@ CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.s: cmake_force
 CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
 CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o: /home/sree/Cloud/cloud-autoscalar/server/RegistryServer.cpp
 CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building CXX object CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o -c /home/sree/Cloud/cloud-autoscalar/server/RegistryServer.cpp
 
 CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.i: cmake_force
@@ -167,29 +223,70 @@ CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/server/RegistryServer.cpp -o CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.s
 
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/VMMonitor.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.s
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o: CMakeFiles/cloud_autoscalar.dir/flags.make
+CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o: /home/sree/Cloud/cloud-autoscalar/autoscalar/AutoScaler.cpp
+CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o: CMakeFiles/cloud_autoscalar.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_13) "Building CXX object CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o -MF CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o.d -o CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o -c /home/sree/Cloud/cloud-autoscalar/autoscalar/AutoScaler.cpp
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sree/Cloud/cloud-autoscalar/autoscalar/AutoScaler.cpp > CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.i
+
+CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sree/Cloud/cloud-autoscalar/autoscalar/AutoScaler.cpp -o CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.s
+
 # Object files for target cloud_autoscalar
 cloud_autoscalar_OBJECTS = \
 "CMakeFiles/cloud_autoscalar.dir/main.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o" \
 "CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o" \
 "CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o" \
 "CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o" \
 "CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o" \
 "CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o" \
-"CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o"
+"CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o" \
+"CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o"
 
 # External object files for target cloud_autoscalar
 cloud_autoscalar_EXTERNAL_OBJECTS =
 
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/main.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/DiskManager.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/DomainXMLBuilder.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/LibvirtConnection.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/VmManager.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/VMCloner.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/client/Client.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/client/LoadGenerator.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/orchastretor/Orchestrator.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/server/LoadBalancer.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/server/RegistryServer.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/VMMonitor.cpp.o
+cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/autoscalar/AutoScaler.cpp.o
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/build.make
+cloud_autoscalar: /usr/lib/x86_64-linux-gnu/libvirt.so
 cloud_autoscalar: CMakeFiles/cloud_autoscalar.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Linking CXX executable cloud_autoscalar"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/sree/Cloud/cloud-autoscalar/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Linking CXX executable cloud_autoscalar"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/cloud_autoscalar.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
