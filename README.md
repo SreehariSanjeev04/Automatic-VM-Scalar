@@ -59,6 +59,14 @@ Autoscaler <-> libvirt qemu:///system
    The CLI sends requests to `192.168.122.1:8080`. Use `increase` for high
    traffic, `decrease` for low traffic, and `exit` to stop the client.
 
+6. **Guest computation server**  
+   [Catalan.cpp](./computation/Catalan.cpp) runs inside each guest VM. It
+   exposes `GET /binary-trees?n=<integer>` on `0.0.0.0:8080` and calculates the
+   number of binary trees using a deliberately expensive recursive algorithm.
+   The server must be compiled and managed by systemd inside the initial VM.
+   Provision the service in the base VM image so that every autoscaler replica
+   starts the same server.
+
 ## Host dependencies
 
 The commands below target Debian or Ubuntu:
@@ -154,8 +162,61 @@ virsh -c qemu:///system dominfo vm
 virsh -c qemu:///system domifaddr vm --source lease
 ```
 
-Inside `vm`, start the guest application so that it listens on
-`0.0.0.0:8080` and implements:
+Inside `vm`, build the guest computation server from
+[Catalan.cpp](./computation/Catalan.cpp):
+
+```bash
+sudo install -d /opt/cloud-autoscalar
+sudo install -m 0644 computation/Catalan.cpp /opt/cloud-autoscalar/Catalan.cpp
+sudo install -m 0644 commons/httplib.h /opt/cloud-autoscalar/httplib.h
+sudo c++ -std=c++20 -O2 -pthread \
+  -I/opt/cloud-autoscalar \
+  /opt/cloud-autoscalar/Catalan.cpp \
+  -o /opt/cloud-autoscalar/catalan-server
+```
+
+Create `/etc/systemd/system/catalan-server.service` inside the VM. Replace
+`vmuser` with the unprivileged user that should run the server:
+
+```ini
+[Unit]
+Description=Cloud AutoScalar Catalan computation server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vmuser
+WorkingDirectory=/opt/cloud-autoscalar
+ExecStart=/opt/cloud-autoscalar/catalan-server
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Reload systemd, enable the service at boot, and start it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now catalan-server.service
+sudo systemctl status catalan-server.service
+```
+
+Verify the service before using the VM as the base image:
+
+```bash
+curl "http://127.0.0.1:8080/binary-trees?n=20"
+sudo journalctl -u catalan-server.service --no-pager
+```
+
+The service must be active in the initial VM before the autoscaler starts.
+Because replicas are cloned from the base image, repeat this provisioning
+after changing the server binary or unit file and recreate any existing
+replicas if they should receive the update.
+
+The guest server listens on `0.0.0.0:8080` and implements:
 
 ```text
 GET /binary-trees?n=<integer>
