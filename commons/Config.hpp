@@ -31,6 +31,7 @@ struct Config
         unsigned int requiredLowLoadCount = 5;
         unsigned int monitorIntervalSeconds = 2;
         unsigned int warmupSeconds = 30;
+        unsigned int cooldownSeconds = 30;
     } scaling;
 
     struct Network

@@ -25,7 +25,7 @@ private:
 
     std::string baseImage_;
     std::string initialVMName_;
-    
+
     unsigned int vcpus_;
     unsigned long memory_;
 
@@ -40,6 +40,10 @@ private:
 
     std::chrono::steady_clock::time_point startTime_;
     std::chrono::seconds warmupPeriod_;
+
+    std::chrono::steady_clock::time_point lastScaleTime_;
+    std::chrono::seconds cooldownPeriod_;
+    bool hasScaled_;
 
     std::vector<std::string> activeVMs_;
     std::unordered_map<std::string, unsigned int> vmOverloadCounts_;

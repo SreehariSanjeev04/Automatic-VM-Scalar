@@ -31,7 +31,9 @@ Autoscaler::Autoscaler(
       startTime_(std::chrono::steady_clock::now()),
       warmupPeriod_(config.scaling.warmupSeconds),
       scaleInThreshold_(config.scaling.scaleInCpuThreshold),
-      requiredLowLoadCount_(config.scaling.requiredLowLoadCount)
+      requiredLowLoadCount_(config.scaling.requiredLowLoadCount),
+      lastScaleTime_(std::chrono::steady_clock::now()),
+      cooldownPeriod_(config.scaling.cooldownSeconds)
 {
 
     if (!connection_)
@@ -260,6 +262,17 @@ void Autoscaler::monitorAllVMs()
         return;
     }
 
+    if (hasScaled_)
+    {
+        auto elapsed = std::chrono::steady_clock::now() - lastScaleTime_;
+
+        if (elapsed < cooldownPeriod_)
+        {
+            LOG_INFO("Scaling cooldown active");
+            return;
+        }
+    }
+
     // Scale-out decision
     if (currentReplicas_ < maxReplicas_)
     {
@@ -313,11 +326,15 @@ void Autoscaler::scaleOut()
     {
         LOG_INFO("Creating %s", newVMName.c_str());
 
-        cloner_.clone(
-            newVMName,
-            baseImage_,
-            vcpus_,
-            memory_);
+        if (!cloner_.clone(
+                newVMName,
+                baseImage_,
+                vcpus_,
+                memory_))
+        {
+            LOG_ERROR("Failed to clone VM: %s", newVMName.c_str());
+            return;
+        }
 
         currentReplicas_++;
 
@@ -354,6 +371,9 @@ void Autoscaler::scaleOut()
         }
 
         LOG_INFO("Registered %s (%s)", newVMName.c_str(), ip.c_str());
+
+        lastScaleTime_ = std::chrono::steady_clock::now();
+        hasScaled_ = true;
 
         for (auto &entry : vmOverloadCounts_)
         {
@@ -427,6 +447,9 @@ void Autoscaler::scaleIn()
         vmLowLoadCounts_.erase(vmName);
 
         currentReplicas_--;
+
+        lastScaleTime_ = std::chrono::steady_clock::now();
+        hasScaled_ = true;
 
         LOG_INFO("Successfully removed %s", vmName.c_str());
         LOG_INFO("Active replicas: %u", currentReplicas_);

@@ -90,6 +90,7 @@ Config Config::load(const std::string &path)
     readValue(scaling, "required_low_load_count", config.scaling.requiredLowLoadCount);
     readValue(scaling, "monitor_interval_seconds", config.scaling.monitorIntervalSeconds);
     readValue(scaling, "warmup_seconds", config.scaling.warmupSeconds);
+    readValue(scaling, "cooldownSeconds", config.scaling.cooldownSeconds);
 
     readValue(network, "load_balancer_host", config.network.loadBalancerHost);
     readValue(network, "load_balancer_port", config.network.loadBalancerPort);
