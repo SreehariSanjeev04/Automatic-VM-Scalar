@@ -1,6 +1,4 @@
 #include "LoadGenerator.hpp"
-#include "Logger.hpp"
-#include "Constant.hpp"
 #include "httplib.h"
 #include "json.hpp"
 
@@ -14,6 +12,12 @@ namespace
 {
     std::atomic_bool stopRequested{false};
     std::atomic_bool running{false};
+    Config config;
+}
+
+void LoadGenerator::configure(const Config &value)
+{
+    config = value;
 }
 
 void LoadGenerator::resetStop()
@@ -36,34 +40,31 @@ void LoadGenerator::generateHighTraffic()
     running.store(true);
     std::vector<std::thread> worker_threads;
 
-    LOG_INFO("Generating high traffic with %d threads", Request::num_threads);
-
-    for (int count = 0; count < Request::num_threads; count++)
+    for (unsigned int count = 0; count < config.traffic.highThreads; count++)
     {
         worker_threads.emplace_back([]()
                                     {
-            httplib::Client client("192.168.122.1", 8080);
-            client.set_connection_timeout(2, 0);
-            client.set_read_timeout(2, 0);
-            client.set_write_timeout(2, 0);
+            httplib::Client client(
+                config.network.loadBalancerHost,
+                config.network.loadBalancerPort);
+            client.set_connection_timeout(
+                config.network.connectionTimeoutSeconds, 0);
+            client.set_read_timeout(
+                config.network.requestTimeoutSeconds, 0);
+            client.set_write_timeout(
+                config.network.requestTimeoutSeconds, 0);
 
             json payload;
-            payload["value"] = 20;
+            payload["value"] = config.traffic.highValue;
 
             for (int req = 0;
-                 req < Request::requests_per_threads_high &&
+                 req < static_cast<int>(config.traffic.highRequestsPerThread) &&
                  !stopRequested.load();
                  req++) {
-                if (auto res = client.Post("/work", payload.dump(), "application/json")) {
-                    if (res->status >= 200 && res->status < 300) {
-                        LOG_INFO("Request successful. Status: %d", res->status);
-                    } else {
-                        LOG_ERROR("Request failed with HTTP status: %d", res->status);
-                    }
-                } else {
-                    LOG_ERROR("Request failed: %s",
-                    httplib::to_string(res.error()).c_str());
-                }
+                client.Post(
+                    config.network.loadBalancerPath,
+                    payload.dump(),
+                    "application/json");
             } });
     }
 
@@ -81,32 +82,33 @@ void LoadGenerator::generateLowTraffic()
 {
     running.store(true);
 
-    LOG_INFO("Generating low traffic");
-    httplib::Client client("http://192.168.122.1:8080");
-    client.set_connection_timeout(2, 0);
-    client.set_read_timeout(2, 0);
-    client.set_write_timeout(2, 0);
+    httplib::Client client(
+        config.network.loadBalancerHost,
+        config.network.loadBalancerPort);
+    client.set_connection_timeout(
+        config.network.connectionTimeoutSeconds, 0);
+    client.set_read_timeout(
+        config.network.requestTimeoutSeconds, 0);
+    client.set_write_timeout(
+        config.network.requestTimeoutSeconds, 0);
 
     json payload;
-    payload["value"] = 2;
+    payload["value"] = config.traffic.lowValue;
 
     for (int req = 0;
-         req < Request::requests_per_threads_low &&
+         req < static_cast<int>(config.traffic.lowRequestsPerThread) &&
          !stopRequested.load();
          req++)
     {
-        if (auto res = client.Post("/work", payload.dump(), "application/json")) {
-                if (res->status >= 200 && res->status < 300) {
-                    LOG_INFO("Request successful. Status: %d", res->status);
-                } else {
-                    LOG_ERROR("Request failed with HTTP status: %d", res->status);
-                }
-            } else {
-                LOG_ERROR("Request failed: %s",
-                        httplib::to_string(res.error()).c_str());
-            }
+        client.Post(
+            config.network.loadBalancerPath,
+            payload.dump(),
+            "application/json");
 
-        for (int wait = 0; wait < 20 && !stopRequested.load(); wait++)
+        for (unsigned int wait = 0;
+             wait < config.traffic.lowRequestDelayMilliseconds / 100 &&
+             !stopRequested.load();
+             wait++)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }

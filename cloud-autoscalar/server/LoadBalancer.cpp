@@ -1,18 +1,21 @@
 #include "LoadBalancer.hpp"
 #include "Logger.hpp"
 #include "httplib.h"
-#include "VmManager.hpp"
+#include "VMManager.hpp"
 #include "json.hpp"
 
 using json = nlohmann::json;
 
-LoadBalancer::LoadBalancer(int port) : port(port) {}
+LoadBalancer::LoadBalancer(const Config &config)
+    : port(static_cast<int>(config.network.loadBalancerPort)),
+      config_(config) {}
 
 void LoadBalancer::startLoadBalancer()
 {
     httplib::Server svr;
 
-    svr.Post("/work", [this](const httplib::Request &req, httplib::Response &res)
+    svr.Post(config_.network.loadBalancerPath,
+             [this](const httplib::Request &req, httplib::Response &res)
              {
         try {
             std::string body = req.body;
@@ -39,12 +42,12 @@ void LoadBalancer::startLoadBalancer()
             res.set_content("{\"status\":\"Malformed JSON\"}", "application/json");
         } });
 
-    svr.listen("0.0.0.0", port);
+    svr.listen(config_.network.loadBalancerBindAddress, port);
 }
 
 bool LoadBalancer::distributeWork(int value)
 {
-    int size = VmManager::getNumOfVMs();
+    int size = VMManager::getNumOfVMs();
 
     if (size == 0)
     {
@@ -57,7 +60,7 @@ bool LoadBalancer::distributeWork(int value)
         std::lock_guard<std::mutex> lock(index_mutex);
         nextIndex = (prevIndex + 1) % size;
     }
-    std::optional<std::string> vmIP = VmManager::getVMIpAtIndex(nextIndex);
+    std::optional<std::string> vmIP = VMManager::getVMIpAtIndex(nextIndex);
 
     if (!vmIP.has_value())
     {
@@ -65,12 +68,17 @@ bool LoadBalancer::distributeWork(int value)
         return false;
     }
 
-    httplib::Client client(vmIP.value(), 8080);
-    client.set_connection_timeout(2, 0);
-    client.set_read_timeout(2, 0);
-    client.set_write_timeout(2, 0);
+    httplib::Client client(vmIP.value(), config_.vm.guestPort);
+    client.set_connection_timeout(
+        config_.network.connectionTimeoutSeconds, 0);
+    client.set_read_timeout(
+        config_.network.requestTimeoutSeconds, 0);
+    client.set_write_timeout(
+        config_.network.requestTimeoutSeconds, 0);
 
-    if (auto res = client.Get("/binary-trees?n=" + std::to_string(value));
+    LOG_INFO("Sending work to VM with IP %s", vmIP.value().c_str());
+    if (auto res =     client.Get(
+        config_.vm.workPath + "?n=" + std::to_string(value));
         res && res->status >= 200 && res->status < 300)
     {
         LOG_INFO("Response status: %d", res->status);

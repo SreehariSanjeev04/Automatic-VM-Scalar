@@ -33,12 +33,12 @@ Autoscaler <-> libvirt qemu:///system
 ### Runtime components
 
 1. **Orchestrator**  
-   [Orchestrator.cpp](./orchastretor/Orchestrator.cpp) connects to the system
+   [Orchestrator.cpp](./orchestrator/Orchestrator.cpp) connects to the system
    libvirt instance, initializes the VM cloner and autoscaler, and starts the
    host load balancer.
 
 2. **Autoscaler**  
-   [AutoScaler.cpp](./autoscalar/AutoScaler.cpp) expects an initial running
+   [Autoscaler.cpp](./autoscaler/Autoscaler.cpp) expects an initial running
    domain named `vm`. It discovers the VM's DHCP address, waits for its
    application on port `8080`, and registers its address. Sustained CPU usage
    above `75%` triggers scale-out after three observations. When more than one
@@ -104,8 +104,8 @@ needed.
 ## Storage and VM prerequisites
 
 The current implementation uses these values in
-[Orchestrator.cpp](./orchastretor/Orchestrator.cpp) and
-[AutoScaler.cpp](./autoscalar/AutoScaler.cpp):
+[Orchestrator.cpp](./orchestrator/Orchestrator.cpp) and
+[Autoscaler.cpp](./autoscaler/Autoscaler.cpp):
 
 | Item | Required value |
 |---|---|
@@ -117,6 +117,11 @@ The current implementation uses these values in
 | Guest application endpoint | `GET /binary-trees?n=<value>` |
 | Host load balancer | `0.0.0.0:8080` |
 | Client target | `192.168.122.1:8080` |
+
+These values, along with VM sizing, replica limits, scaling thresholds,
+timeouts, and traffic volume, are configured in
+[autoscaler.config](./autoscaler.config). The file is JSON and can be copied
+and edited for another environment.
 
 The base image must be an existing libvirt-managed volume in the `images`
 storage pool. The pool must be active:
@@ -192,6 +197,12 @@ Start the orchestrator first:
 sudo ./build/cloud_autoscalar
 ```
 
+Use an alternate configuration file with:
+
+```bash
+sudo ./build/cloud_autoscalar /path/to/autoscaler.config
+```
+
 Use `sudo` only if the current user cannot access the system libvirt socket.
 The orchestrator should log the following startup phases:
 
@@ -208,6 +219,12 @@ In a second terminal, start the client:
 
 ```bash
 ./build/cloud_autoscalar_client
+```
+
+The client also accepts an alternate configuration path:
+
+```bash
+./build/cloud_autoscalar_client /path/to/autoscaler.config
 ```
 
 Available commands:
@@ -236,6 +253,9 @@ curl -i \
 
 A successful request returns a JSON success response. A `500` response usually
 means that no VM is registered or that the guest application is unavailable.
+Backend connections allow up to 30 seconds for the guest application to
+complete a computation; connection establishment itself times out after two
+seconds.
 
 ## Scaling behavior
 
@@ -273,6 +293,15 @@ virsh -c qemu:///system domifaddr vm --source lease
 
 If the last message is `Waiting for initial VM server`, the VM is reachable
 but its application is not accepting TCP connections on port `8080`.
+
+If the load balancer reports `Failed to read connection`, the guest application
+closed the connection or did not respond within the 30-second backend request
+timeout. Test the guest endpoint directly and inspect the guest application
+logs:
+
+```bash
+curl -v "http://<VM_IP>:8080/binary-trees?n=20"
+```
 
 ### Client cannot connect
 

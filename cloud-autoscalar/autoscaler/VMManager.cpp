@@ -1,12 +1,12 @@
-#include "VmManager.hpp"
+#include "VMManager.hpp"
 #include "Logger.hpp"
 
 #include <algorithm>
 
-std::vector<std::string> VmManager::clientIPs;
-std::mutex VmManager::registry_mutex;
+std::vector<std::string> VMManager::clientIPs;
+std::mutex VMManager::registry_mutex;
 
-void VmManager::registerVM(const std::string &ip)
+void VMManager::registerVM(const std::string &ip)
 {
     std::lock_guard<std::mutex> lock(registry_mutex);
 
@@ -21,7 +21,7 @@ void VmManager::registerVM(const std::string &ip)
     LOG_INFO("Registered VM with IP address %s", ip.c_str());
 }
 
-bool VmManager::deregisterVM(const std::string &ip)
+bool VMManager::deregisterVM(const std::string &ip)
 {
     std::lock_guard<std::mutex> lock(registry_mutex);
 
@@ -40,12 +40,12 @@ bool VmManager::deregisterVM(const std::string &ip)
     return true;
 }
 
-int VmManager::getNumOfVMs(){
+int VMManager::getNumOfVMs(){
     std::lock_guard<std::mutex> lock(registry_mutex);
     return static_cast<int>(clientIPs.size());
 }
 
-std::optional<std::string> VmManager::getVMIpAtIndex(int index){
+std::optional<std::string> VMManager::getVMIpAtIndex(int index){
     std::lock_guard<std::mutex> lock(registry_mutex);
     if (index < 0 || index >= static_cast<int>(clientIPs.size()))
         return std::nullopt;

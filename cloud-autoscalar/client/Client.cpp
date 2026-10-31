@@ -1,13 +1,22 @@
 #include "LoadGenerator.hpp"
-#include "Logger.hpp"
+#include "Config.hpp"
 
 #include <iostream>
 #include <string>
 #include <thread>
 
-int main()
+int main(int argc, char **argv)
 {
-    LOG_INFO("Client started. Commands: increase, decrease, exit");
+    const char *configPath = argc > 1 ? argv[1] : "autoscaler.config";
+
+    try
+    {
+        LoadGenerator::configure(Config::load(configPath));
+    }
+    catch (const std::exception &)
+    {
+        return 1;
+    }
 
     std::string command;
     std::thread trafficThread;
@@ -18,7 +27,6 @@ int main()
 
         if (!std::getline(std::cin, command))
         {
-            LOG_ERROR("Failed to read a command");
             LoadGenerator::requestStop();
             if (trafficThread.joinable())
             {
@@ -31,7 +39,6 @@ int main()
         {
             if (LoadGenerator::isRunning())
             {
-                LOG_ERROR("Traffic generation is already running");
                 continue;
             }
             if (trafficThread.joinable())
@@ -39,7 +46,6 @@ int main()
                 trafficThread.join();
             }
 
-            LOG_INFO("Increasing traffic");
             LoadGenerator::resetStop();
             trafficThread = std::thread(
                 LoadGenerator::generateHighTraffic);
@@ -48,7 +54,6 @@ int main()
         {
             if (LoadGenerator::isRunning())
             {
-                LOG_ERROR("Traffic generation is already running");
                 continue;
             }
             if (trafficThread.joinable())
@@ -56,26 +61,18 @@ int main()
                 trafficThread.join();
             }
 
-            LOG_INFO("Decreasing traffic");
             LoadGenerator::resetStop();
             trafficThread = std::thread(
                 LoadGenerator::generateLowTraffic);
         }
         else if (command == "exit")
         {
-            LOG_INFO("Client shutting down");
             LoadGenerator::requestStop();
             if (trafficThread.joinable())
             {
                 trafficThread.join();
             }
             return 0;
-        }
-        else
-        {
-            LOG_ERROR(
-                "Unknown command: %s. Use increase, decrease, or exit",
-                command.c_str());
         }
     }
 }

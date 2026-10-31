@@ -3,7 +3,7 @@
 
 class Orchestrator {
     public:
-        static void run();
+        static void run(const char *configPath);
 };
 
 #endif

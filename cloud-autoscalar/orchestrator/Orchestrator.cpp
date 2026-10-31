@@ -4,15 +4,18 @@
 #include "LibvirtConnection.hpp"
 #include "VMCloner.hpp"
 #include "VMMonitor.hpp"
-#include "AutoScaler.hpp"
+#include "Autoscaler.hpp"
 
 #include <thread>
 
-void Orchestrator::run()
+void Orchestrator::run(const char *configPath)
 {
     try {
+        Config config = Config::load(configPath);
+        LOG_INFO("Loaded configuration from %s", configPath);
+
         LOG_INFO("Connecting to libvirt");
-        LibvirtConnection connection;
+        LibvirtConnection connection(config.libvirt.uri.c_str());
 
         if (!connection.get())
         {
@@ -26,22 +29,23 @@ void Orchestrator::run()
         LOG_INFO("Initializing VM cloner");
         VMCloner cloner(
             connection.get(),
-            "images"
+            config.libvirt.storagePool
         );
 
         LOG_INFO("Initializing autoscaler");
-        LoadBalancer loadBalancer(8080);
+        LoadBalancer loadBalancer(config);
 
         Autoscaler autoscaler(
             connection.get(),
             monitor,
             cloner,
-            "/mnt/LinuxData/images/base.qcow2",
-            2, 2048
+            config
         );
 
         LOG_INFO("Autoscaler initialized");
-        LOG_INFO("Starting load balancer on port %d", 8080);
+        LOG_INFO(
+            "Starting load balancer on port %u",
+            config.network.loadBalancerPort);
         std::thread loadBalancerThread([&]() {
             loadBalancer.startLoadBalancer();
         });
@@ -50,7 +54,8 @@ void Orchestrator::run()
         std::thread autoscalerThread([&]() {
             while (true) {
                 autoscaler.monitorAllVMs();
-                std::this_thread::sleep_for(std::chrono::seconds(2));
+                std::this_thread::sleep_for(
+                    std::chrono::seconds(config.scaling.monitorIntervalSeconds));
             }
         });
         loadBalancerThread.join();

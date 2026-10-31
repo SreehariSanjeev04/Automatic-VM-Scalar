@@ -6,7 +6,7 @@
 #include <mutex>
 #include <optional>
 
-class VmManager {
+class VMManager {
     private:    
         static std::vector<std::string> clientIPs;
         static std::mutex registry_mutex;

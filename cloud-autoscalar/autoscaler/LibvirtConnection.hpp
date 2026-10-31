@@ -9,9 +9,7 @@ private:
     virConnectPtr conn_;
 
 public:
-    explicit LibvirtConnection(
-        const char* uri = "qemu:///system" // default local qemu
-    );
+    explicit LibvirtConnection(const char* uri);
 
     ~LibvirtConnection();
 

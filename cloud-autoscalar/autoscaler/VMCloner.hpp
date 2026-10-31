@@ -12,10 +12,7 @@ private:
     DomainXMLBuilder xmlBuilder_;
 
 public:
-    VMCloner(
-        virConnectPtr conn,
-        const std::string& poolName
-    );
+    VMCloner(virConnectPtr conn, const std::string& poolName);
 
     bool clone(
         const std::string& newName,

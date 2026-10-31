@@ -1,6 +1,6 @@
-#include "AutoScaler.hpp"
+#include "Autoscaler.hpp"
 #include "Logger.hpp"
-#include "VmManager.hpp"
+#include "VMManager.hpp"
 
 #include <stdexcept>
 #include <thread>
@@ -14,25 +14,24 @@ Autoscaler::Autoscaler(
     virConnectPtr connection,
     VMMonitor &monitor,
     VMCloner &cloner,
-    const std::string &baseImage,
-    unsigned int vcpus,
-    unsigned long memory,
-    unsigned int initialReplicas,
-    unsigned int maxReplicas)
+    const Config &config)
     : connection_(connection),
       monitor_(monitor),
       cloner_(cloner),
-      baseImage_(baseImage),
-      vcpus_(vcpus),
-      memory_(memory),
-      currentReplicas_(initialReplicas),
-      maxReplicas_(maxReplicas),
+      config_(config),
+      baseImage_(config.libvirt.baseImage),
+      vcpus_(config.vm.vcpus),
+      memory_(config.vm.memoryMiB),
+      currentReplicas_(config.vm.initialReplicas),
+      maxReplicas_(config.vm.maxReplicas),
       overloadCount_(0),
-      cpuThreshold_(75.0),
-      requiredOverloadCount_(3),
+      cpuThreshold_(config.scaling.scaleOutCpuThreshold),
+      requiredOverloadCount_(config.scaling.requiredOverloadCount),
       scalingInProgress_(false),
       startTime_(std::chrono::steady_clock::now()),
-      warmupPeriod_(30)
+      warmupPeriod_(config.scaling.warmupSeconds),
+      scaleInThreshold_(config.scaling.scaleInCpuThreshold),
+      requiredLowLoadCount_(config.scaling.requiredLowLoadCount)
 {
 
     if (!connection_)
@@ -40,24 +39,22 @@ Autoscaler::Autoscaler(
         throw std::runtime_error("Invalid libvirt connection");
     }
 
-    if (initialReplicas == 0 || maxReplicas < initialReplicas)
-    {
-        throw std::invalid_argument("Invalid replica configuration");
-    }
-
-    initialVMName_ = "vm";
+    initialVMName_ = config.vm.initialName;
 
     LOG_INFO("Discovering IP address for initial VM: %s", initialVMName_.c_str());
     std::string ip = getVMIPv4(initialVMName_);
 
-    LOG_INFO("Waiting for initial VM server at %s:8080", ip.c_str());
-    if (!waitForServer(ip, 8080))
+    LOG_INFO(
+        "Waiting for initial VM server at %s:%u",
+        ip.c_str(),
+        config.vm.guestPort);
+    if (!waitForServer(ip, config.vm.guestPort))
     {
         throw std::runtime_error(
             "Initial VM server application is not ready: " + initialVMName_);
     }
 
-    VmManager::registerVM(ip);
+    VMManager::registerVM(ip);
     activeVMs_.push_back(initialVMName_);
     vmOverloadCounts_[initialVMName_] = 0;
     vmLowLoadCounts_[initialVMName_] = 0;
@@ -210,7 +207,10 @@ void Autoscaler::evaluate(const VMStats &stats)
 
     if (stats.cpuUsage > cpuThreshold_)
     {
-        vmOverloadCounts_[stats.name]++;
+        if (vmOverloadCounts_[stats.name] < requiredOverloadCount_)
+        {
+            vmOverloadCounts_[stats.name]++;
+        }
         vmLowLoadCounts_[stats.name] = 0;
 
         LOG_INFO(
@@ -219,9 +219,12 @@ void Autoscaler::evaluate(const VMStats &stats)
             vmOverloadCounts_[stats.name],
             requiredOverloadCount_);
     }
-    else if (stats.cpuUsage < scaleInThreshold_)
+    else if (stats.cpuUsage < config_.scaling.scaleInCpuThreshold)
     {
-        vmLowLoadCounts_[stats.name]++;
+        if (vmLowLoadCounts_[stats.name] < requiredLowLoadCount_)
+        {
+            vmLowLoadCounts_[stats.name]++;
+        }
         vmOverloadCounts_[stats.name] = 0;
 
         LOG_INFO(
@@ -303,7 +306,8 @@ void Autoscaler::scaleOut()
     scalingInProgress_ = true;
 
     std::string newVMName =
-        "vm-" + std::to_string(currentReplicas_ + 1);
+        config_.vm.replicaNamePrefix +
+        std::to_string(currentReplicas_ + 1);
 
     try
     {
@@ -325,7 +329,7 @@ void Autoscaler::scaleOut()
 
         LOG_INFO("Waiting for server application");
 
-        if (!waitForServer(ip, 8080))
+        if (!waitForServer(ip, config_.vm.guestPort))
         {
             throw std::runtime_error(
                 "Server application did not become ready");
@@ -333,7 +337,7 @@ void Autoscaler::scaleOut()
 
         LOG_INFO("Server is ready. Registering VM");
 
-        VmManager::registerVM(ip);
+        VMManager::registerVM(ip);
 
         activeVMs_.push_back(newVMName);
         vmOverloadCounts_[newVMName] = 0;
@@ -396,18 +400,22 @@ void Autoscaler::scaleIn()
         std::string ip = getVMIPv4(vmName);
 
         // Stop sending new requests to this VM.
-        bool wasRegistered = VmManager::deregisterVM(ip);
+        bool wasRegistered = VMManager::deregisterVM(ip);
 
         if (!wasRegistered)
         {
-            throw std::runtime_error(
-                "VM was not registered with the load balancer");
+            LOG_INFO(
+                "VM %s was already absent from the load balancer registry",
+                ip.c_str());
         }
 
         // Stop and undefine the VM, then delete its overlay.
         if (!cloner_.remove(vmName))
         {
-            VmManager::registerVM(ip);
+            if (wasRegistered)
+            {
+                VMManager::registerVM(ip);
+            }
 
             throw std::runtime_error(
                 "Failed to remove VM: " + vmName);

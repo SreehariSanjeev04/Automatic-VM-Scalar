@@ -12,23 +12,24 @@ pkg_check_modules(LIBVIRT REQUIRED IMPORTED_TARGET libvirt)
 
 add_executable(cloud_autoscalar
     main.cpp
-    autoscalar/DiskManager.cpp
-    autoscalar/DomainXMLBuilder.cpp
-    autoscalar/LibvirtConnection.cpp
-    autoscalar/VmManager.cpp
-    autoscalar/VMCloner.cpp
-    orchastretor/Orchestrator.cpp
+    commons/Config.cpp
+    autoscaler/DiskManager.cpp
+    autoscaler/DomainXMLBuilder.cpp
+    autoscaler/LibvirtConnection.cpp
+    autoscaler/VMManager.cpp
+    autoscaler/VMCloner.cpp
+    orchestrator/Orchestrator.cpp
     server/LoadBalancer.cpp
-    autoscalar/VMMonitor.cpp
-    autoscalar/AutoScaler.cpp
+    autoscaler/VMMonitor.cpp
+    autoscaler/Autoscaler.cpp
 )
 
 target_include_directories(cloud_autoscalar PRIVATE
-    autoscalar
+    autoscaler
     client
     commons
     logger
-    orchastretor
+    orchestrator
     server
 )
 
@@ -44,6 +45,7 @@ else()
 endif()
 
 add_executable(cloud_autoscalar_client
+    commons/Config.cpp
     client/Client.cpp
     client/LoadGenerator.cpp
 )

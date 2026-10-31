@@ -2,6 +2,7 @@
 #define LOADBALANCER_H
 
 #include <mutex>
+#include "Config.hpp"
 
 class LoadBalancer {
     private:
@@ -9,7 +10,8 @@ class LoadBalancer {
         int prevIndex = -1;
         std::mutex index_mutex;
     public:
-        LoadBalancer(int port);
+        explicit LoadBalancer(const Config &config);
+        Config config_;
         void startLoadBalancer();
         bool distributeWork(int value);
 };

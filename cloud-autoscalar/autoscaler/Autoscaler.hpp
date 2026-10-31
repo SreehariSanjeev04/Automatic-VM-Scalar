@@ -3,6 +3,7 @@
 
 #include "VMMonitor.hpp"
 #include "VMCloner.hpp"
+#include "Config.hpp"
 
 #include <libvirt/libvirt.h>
 
@@ -20,6 +21,7 @@ private:
 
     VMMonitor &monitor_;
     VMCloner &cloner_;
+    Config config_;
 
     std::string baseImage_;
     std::string initialVMName_;
@@ -56,11 +58,7 @@ public:
         virConnectPtr connection,
         VMMonitor &monitor,
         VMCloner &cloner,
-        const std::string &baseImage,
-        unsigned int vcpus,
-        unsigned long memory,
-        unsigned int initialReplicas = 1,
-        unsigned int maxReplicas = 2);
+        const Config &config);
 
     void evaluate(const VMStats &stats);
     void monitorAllVMs();
