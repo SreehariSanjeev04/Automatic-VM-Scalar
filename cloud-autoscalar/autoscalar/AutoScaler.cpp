@@ -1,7 +1,7 @@
 #include "AutoScaler.hpp"
+#include "Logger.hpp"
 #include "VmManager.hpp"
 
-#include <iostream>
 #include <stdexcept>
 #include <thread>
 #include <chrono>
@@ -10,7 +10,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
 Autoscaler::Autoscaler(
     virConnectPtr connection,
     VMMonitor &monitor,
@@ -46,7 +45,27 @@ Autoscaler::Autoscaler(
         throw std::invalid_argument("Invalid replica configuration");
     }
 
-    activeVMs_.push_back("ubuntu-base");
+    initialVMName_ = "vm";
+
+    LOG_INFO("Discovering IP address for initial VM: %s", initialVMName_.c_str());
+    std::string ip = getVMIPv4(initialVMName_);
+
+    LOG_INFO("Waiting for initial VM server at %s:8080", ip.c_str());
+    if (!waitForServer(ip, 8080))
+    {
+        throw std::runtime_error(
+            "Initial VM server application is not ready: " + initialVMName_);
+    }
+
+    VmManager::registerVM(ip);
+    activeVMs_.push_back(initialVMName_);
+    vmOverloadCounts_[initialVMName_] = 0;
+    vmLowLoadCounts_[initialVMName_] = 0;
+
+    startTime_ = std::chrono::steady_clock::now() - warmupPeriod_;
+
+    LOG_INFO("Initial VM registered: %s", initialVMName_.c_str());
+    LOG_INFO("Warm-up skipped for initial VM");
 }
 
 std::string Autoscaler::getVMIPv4(const std::string &vmName)
@@ -59,6 +78,8 @@ std::string Autoscaler::getVMIPv4(const std::string &vmName)
     {
         throw std::runtime_error("VM not found: " + vmName);
     }
+
+    LOG_INFO("Waiting for DHCP lease for VM: %s", vmName.c_str());
 
     for (int attempt = 0; attempt < 60; attempt++)
     {
@@ -116,6 +137,7 @@ std::string Autoscaler::getVMIPv4(const std::string &vmName)
 
     virDomainFree(domain);
 
+    LOG_ERROR("Timed out waiting for DHCP lease for VM: %s", vmName.c_str());
     throw std::runtime_error(
         "Could not obtain DHCP IP for " + vmName);
 }
@@ -124,6 +146,7 @@ bool Autoscaler::waitForServer(
     const std::string &ip,
     int port)
 {
+    LOG_INFO("Checking server readiness at %s:%d", ip.c_str(), port);
 
     for (int attempt = 0; attempt < 60; attempt++)
     {
@@ -163,6 +186,7 @@ bool Autoscaler::waitForServer(
             std::chrono::seconds(1));
     }
 
+    LOG_ERROR("Timed out waiting for server at %s:%d", ip.c_str(), port);
     return false;
 }
 
@@ -171,36 +195,45 @@ void Autoscaler::evaluate(const VMStats &stats)
     if (stats.state != VIR_DOMAIN_RUNNING)
     {
         vmOverloadCounts_[stats.name] = 0;
+        vmLowLoadCounts_[stats.name] = 0;
         return;
     }
 
-    auto elapsed =
-        std::chrono::steady_clock::now() - startTime_;
+    auto elapsed = std::chrono::steady_clock::now() - startTime_;
 
     if (elapsed < warmupPeriod_)
     {
-        std::cout << "[AUTOSCALER] Warm-up period. "
-                  << "Skipping scaling decisions.\n";
         return;
     }
 
-    std::cout << "[AUTOSCALER] "
-              << stats.name
-              << " CPU: " << stats.cpuUsage << "%\n";
+    LOG_INFO("%s CPU: %.2f%%", stats.name.c_str(), stats.cpuUsage);
 
     if (stats.cpuUsage > cpuThreshold_)
     {
         vmOverloadCounts_[stats.name]++;
+        vmLowLoadCounts_[stats.name] = 0;
 
-        std::cout << "[AUTOSCALER] " << stats.name
-                  << " overload count: "
-                  << vmOverloadCounts_[stats.name]
-                  << "/" << requiredOverloadCount_
-                  << '\n';
+        LOG_INFO(
+            "%s overload count: %u/%u",
+            stats.name.c_str(),
+            vmOverloadCounts_[stats.name],
+            requiredOverloadCount_);
+    }
+    else if (stats.cpuUsage < scaleInThreshold_)
+    {
+        vmLowLoadCounts_[stats.name]++;
+        vmOverloadCounts_[stats.name] = 0;
+
+        LOG_INFO(
+            "%s low-load count: %u/%u",
+            stats.name.c_str(),
+            vmLowLoadCounts_[stats.name],
+            requiredLowLoadCount_);
     }
     else
     {
         vmOverloadCounts_[stats.name] = 0;
+        vmLowLoadCounts_[stats.name] = 0;
     }
 }
 
@@ -215,32 +248,50 @@ void Autoscaler::monitorAllVMs()
         }
         catch (const std::exception &e)
         {
-            std::cerr << "[AUTOSCALER] Failed to monitor "
-                      << vmName << ": " << e.what() << '\n';
+            LOG_ERROR("Failed to monitor %s: %s", vmName.c_str(), e.what());
         }
     }
 
-    if (currentReplicas_ >= maxReplicas_ || scalingInProgress_)
+    if (scalingInProgress_)
+    {
         return;
+    }
 
-    bool overloaded = false;
+    // Scale-out decision
+    if (currentReplicas_ < maxReplicas_)
+    {
+        for (const auto &vmName : activeVMs_)
+        {
+            if (vmOverloadCounts_[vmName] >= requiredOverloadCount_)
+            {
+                LOG_INFO("Sustained overload detected");
+                scaleOut();
+                return;
+            }
+        }
+    }
+
+    // Scale-in decision
+    if (currentReplicas_ <= 1)
+    {
+        return;
+    }
+
+    bool allVMsUnderloaded = true;
 
     for (const auto &vmName : activeVMs_)
     {
-        if (vmOverloadCounts_[vmName] >= requiredOverloadCount_)
+        if (vmLowLoadCounts_[vmName] < requiredLowLoadCount_)
         {
-            overloaded = true;
-
-            std::cout << "[AUTOSCALER] Sustained overload detected on "
-                      << vmName << '\n';
-
+            allVMsUnderloaded = false;
             break;
         }
     }
 
-    if (overloaded)
+    if (allVMsUnderloaded)
     {
-        scaleOut();
+        LOG_INFO("Sustained low load detected");
+        scaleIn();
     }
 }
 
@@ -252,12 +303,11 @@ void Autoscaler::scaleOut()
     scalingInProgress_ = true;
 
     std::string newVMName =
-        "server-" + std::to_string(currentReplicas_ + 1);
+        "vm-" + std::to_string(currentReplicas_ + 1);
 
     try
     {
-        std::cout << "[AUTOSCALER] Creating "
-                  << newVMName << '\n';
+        LOG_INFO("Creating %s", newVMName.c_str());
 
         cloner_.clone(
             newVMName,
@@ -267,15 +317,13 @@ void Autoscaler::scaleOut()
 
         currentReplicas_++;
 
-        std::cout << "[AUTOSCALER] VM created. "
-                  << "Discovering IP...\n";
+        LOG_INFO("VM created. Discovering IP");
 
         std::string ip = getVMIPv4(newVMName);
 
-        std::cout << "[AUTOSCALER] "
-                  << newVMName << " IP: " << ip << '\n';
+        LOG_INFO("%s IP: %s", newVMName.c_str(), ip.c_str());
 
-        std::cout << "[AUTOSCALER] Waiting for server application...\n";
+        LOG_INFO("Waiting for server application");
 
         if (!waitForServer(ip, 8080))
         {
@@ -283,16 +331,25 @@ void Autoscaler::scaleOut()
                 "Server application did not become ready");
         }
 
-        std::cout << "[AUTOSCALER] Server is ready. "
-                  << "Registering VM...\n";
+        LOG_INFO("Server is ready. Registering VM");
 
         VmManager::registerVM(ip);
 
         activeVMs_.push_back(newVMName);
         vmOverloadCounts_[newVMName] = 0;
+        vmLowLoadCounts_[newVMName] = 0;
 
-        std::cout << "[AUTOSCALER] Registered "
-                  << newVMName << " (" << ip << ")\n";
+        for (auto &entry : vmOverloadCounts_)
+        {
+            entry.second = 0;
+        }
+
+        for (auto &entry : vmLowLoadCounts_)
+        {
+            entry.second = 0;
+        }
+
+        LOG_INFO("Registered %s (%s)", newVMName.c_str(), ip.c_str());
 
         for (auto &entry : vmOverloadCounts_)
         {
@@ -301,8 +358,74 @@ void Autoscaler::scaleOut()
     }
     catch (const std::exception &e)
     {
-        std::cerr << "[AUTOSCALER] Scaling failed: "
-                  << e.what() << '\n';
+        LOG_ERROR("Scaling failed: %s", e.what());
+    }
+
+    scalingInProgress_ = false;
+}
+
+void Autoscaler::scaleIn()
+{
+    if (currentReplicas_ <= 1 || scalingInProgress_)
+    {
+        return;
+    }
+
+    scalingInProgress_ = true;
+
+    if (activeVMs_.size() <= 1)
+    {
+        LOG_INFO("Only the initial VM remains");
+        scalingInProgress_ = false;
+        return;
+    }
+
+    std::string vmName = activeVMs_.back();
+
+    if (vmName == initialVMName_)
+    {
+        LOG_ERROR("Refusing to remove the initial VM");
+        scalingInProgress_ = false;
+        return;
+    }
+
+    try
+    {
+        LOG_INFO("Scaling in. Removing %s", vmName.c_str());
+
+        std::string ip = getVMIPv4(vmName);
+
+        // Stop sending new requests to this VM.
+        bool wasRegistered = VmManager::deregisterVM(ip);
+
+        if (!wasRegistered)
+        {
+            throw std::runtime_error(
+                "VM was not registered with the load balancer");
+        }
+
+        // Stop and undefine the VM, then delete its overlay.
+        if (!cloner_.remove(vmName))
+        {
+            VmManager::registerVM(ip);
+
+            throw std::runtime_error(
+                "Failed to remove VM: " + vmName);
+        }
+
+        activeVMs_.pop_back();
+
+        vmOverloadCounts_.erase(vmName);
+        vmLowLoadCounts_.erase(vmName);
+
+        currentReplicas_--;
+
+        LOG_INFO("Successfully removed %s", vmName.c_str());
+        LOG_INFO("Active replicas: %u", currentReplicas_);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Scale-in failed: %s", e.what());
     }
 
     scalingInProgress_ = false;

@@ -22,7 +22,8 @@ private:
     VMCloner &cloner_;
 
     std::string baseImage_;
-
+    std::string initialVMName_;
+    
     unsigned int vcpus_;
     unsigned long memory_;
 
@@ -40,10 +41,15 @@ private:
 
     std::vector<std::string> activeVMs_;
     std::unordered_map<std::string, unsigned int> vmOverloadCounts_;
+    std::unordered_map<std::string, unsigned int> vmLowLoadCounts_;
+
+    double scaleInThreshold_ = 25.0;
+    unsigned int requiredLowLoadCount_ = 5;
 
     std::string getVMIPv4(const std::string &vmName);
     bool waitForServer(const std::string &ip, int port);
     void scaleOut();
+    void scaleIn();
 
 public:
     Autoscaler(

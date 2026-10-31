@@ -96,3 +96,39 @@ std::string DiskManager::createOverlay(
 
     return result;
 }
+
+bool DiskManager::deleteOverlay(const std::string& overlayName)
+{
+    if (!conn_) {
+        LOG_ERROR("Cannot delete overlay without a libvirt connection");
+        return false;
+    }
+
+    virStoragePoolPtr pool =
+        virStoragePoolLookupByName(conn_, poolName_.c_str());
+
+    if (!pool) {
+        LOG_ERROR("Storage pool not found: %s", poolName_.c_str());
+        return false;
+    }
+
+    virStorageVolPtr volume =
+        virStorageVolLookupByName(pool, overlayName.c_str());
+
+    if (!volume) {
+        LOG_ERROR("Overlay not found: %s", overlayName.c_str());
+        virStoragePoolFree(pool);
+        return false;
+    }
+
+    bool success = (virStorageVolDelete(volume, 0) == 0);
+
+    if (!success) {
+        LOG_ERROR("Failed to delete overlay: %s", overlayName.c_str());
+    }
+
+    virStorageVolFree(volume);
+    virStoragePoolFree(pool);
+
+    return success;
+}

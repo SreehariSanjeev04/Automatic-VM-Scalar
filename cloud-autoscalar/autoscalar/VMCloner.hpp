@@ -23,4 +23,6 @@ public:
         unsigned int vcpus,
         unsigned long memoryMiB
     );
+
+    bool remove(const std::string& vmName);
 };

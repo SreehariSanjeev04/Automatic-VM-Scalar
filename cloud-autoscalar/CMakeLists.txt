@@ -17,11 +17,8 @@ add_executable(cloud_autoscalar
     autoscalar/LibvirtConnection.cpp
     autoscalar/VmManager.cpp
     autoscalar/VMCloner.cpp
-    client/Client.cpp
-    client/LoadGenerator.cpp
     orchastretor/Orchestrator.cpp
     server/LoadBalancer.cpp
-    server/RegistryServer.cpp
     autoscalar/VMMonitor.cpp
     autoscalar/AutoScaler.cpp
 )
@@ -44,4 +41,25 @@ if (MSVC)
     target_compile_options(cloud_autoscalar PRIVATE /W4)
 else()
     target_compile_options(cloud_autoscalar PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+add_executable(cloud_autoscalar_client
+    client/Client.cpp
+    client/LoadGenerator.cpp
+)
+
+target_include_directories(cloud_autoscalar_client PRIVATE
+    client
+    commons
+    logger
+)
+
+target_link_libraries(cloud_autoscalar_client PRIVATE
+    Threads::Threads
+)
+
+if (MSVC)
+    target_compile_options(cloud_autoscalar_client PRIVATE /W4)
+else()
+    target_compile_options(cloud_autoscalar_client PRIVATE -Wall -Wextra -Wpedantic)
 endif()

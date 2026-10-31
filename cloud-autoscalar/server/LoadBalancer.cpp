@@ -66,8 +66,11 @@ bool LoadBalancer::distributeWork(int value)
     }
 
     httplib::Client client(vmIP.value(), 8080);
+    client.set_connection_timeout(2, 0);
+    client.set_read_timeout(2, 0);
+    client.set_write_timeout(2, 0);
 
-    if (auto res = client.Get("/work?value=" + std::to_string(value));
+    if (auto res = client.Get("/binary-trees?n=" + std::to_string(value));
         res && res->status >= 200 && res->status < 300)
     {
         LOG_INFO("Response status: %d", res->status);

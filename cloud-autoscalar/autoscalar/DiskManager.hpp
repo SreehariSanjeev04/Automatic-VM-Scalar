@@ -19,6 +19,8 @@ public:
         const std::string& basePath,
         const std::string& overlayName
     );
+
+    bool deleteOverlay(const std::string& overlayName);
 };
 
 #endif
