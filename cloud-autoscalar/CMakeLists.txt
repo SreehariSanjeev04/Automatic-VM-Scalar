@@ -7,10 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBVIRT REQUIRED IMPORTED_TARGET libvirt)
 
 add_executable(cloud_autoscalar
     main.cpp
+    autoscalar/DiskManager.cpp
+    autoscalar/DomainXMLBuilder.cpp
+    autoscalar/LibvirtConnection.cpp
     autoscalar/VmManager.cpp
+    autoscalar/VMCloner.cpp
     client/Client.cpp
     client/LoadGenerator.cpp
     orchastretor/Orchestrator.cpp
@@ -27,7 +33,10 @@ target_include_directories(cloud_autoscalar PRIVATE
     server
 )
 
-target_link_libraries(cloud_autoscalar PRIVATE Threads::Threads)
+target_link_libraries(cloud_autoscalar PRIVATE
+    Threads::Threads
+    PkgConfig::LIBVIRT
+)
 
 if (MSVC)
     target_compile_options(cloud_autoscalar PRIVATE /W4)

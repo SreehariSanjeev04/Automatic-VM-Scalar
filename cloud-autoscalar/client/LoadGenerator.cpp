@@ -10,7 +10,7 @@ void LoadGenerator::generateHighTraffic()
 {
     std::vector<std::thread> worker_threads;
 
-    LOG_INFO("Generating high traffic with %d threads\n", Request::num_threads);
+    LOG_INFO("Generating high traffic with %d threads", Request::num_threads);
 
     for (int count = 0; count < Request::num_threads; count++)
     {
@@ -24,9 +24,9 @@ void LoadGenerator::generateHighTraffic()
 
             for(int req = 0; req < Request::requests_per_threads_high; req++) {
                 if (auto res = client.Post("/work", payload.dump(), "application/json")) {
-                    LOG_INFO("Response status: %d\n", res->status);
+                    LOG_INFO("Response status: %d", res->status);
                 } else {
-                    LOG_ERROR("Request failed: %s\n", httplib::to_string(res.error()).c_str());
+                    LOG_ERROR("Request failed: %s", httplib::to_string(res.error()).c_str());
                 }
             } });
     }
@@ -54,11 +54,11 @@ void LoadGenerator::generateLowTraffic()
     {
         if (auto res = client.Post("/work", payload.dump(), "application/json"))
         {
-            LOG_INFO("Response status: %d\n", res->status);
+            LOG_INFO("Response status: %d", res->status);
         }
         else
         {
-            LOG_ERROR("Request failed: %s\n", httplib::to_string(res.error()).c_str());
+            LOG_ERROR("Request failed: %s", httplib::to_string(res.error()).c_str());
         }
 
         std::this_thread::sleep_for(std::chrono::seconds(2));

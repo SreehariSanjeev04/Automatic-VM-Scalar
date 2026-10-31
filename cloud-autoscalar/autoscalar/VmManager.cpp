@@ -18,10 +18,10 @@ void VmManager::registerVM(const std::string &ip)
 
     clientIPs.push_back(ip);
 
-    LOG_INFO("Registered VM with IP address %s\n", ip.c_str());
+    LOG_INFO("Registered VM with IP address %s", ip.c_str());
 }
 
-void VmManager::deregisterVM(const std::string &ip)
+bool VmManager::deregisterVM(const std::string &ip)
 {
     std::lock_guard<std::mutex> lock(registry_mutex);
 
@@ -29,14 +29,15 @@ void VmManager::deregisterVM(const std::string &ip)
 
     if (it == clientIPs.end())
     {
-        LOG_ERROR("Could not find VM with IP address %s\n", ip.c_str());
-        return;
+        LOG_ERROR("Could not find VM with IP address %s", ip.c_str());
+        return false;
     }
     else
     {
         clientIPs.erase(it);
     }
-    LOG_INFO("Removed VM with IP address %s\n", ip.c_str());
+    LOG_INFO("Removed VM with IP address %s", ip.c_str());
+    return true;
 }
 
 int VmManager::getNumOfVMs(){

@@ -23,12 +23,13 @@ void RegistryServer::startRegistryServer() {
     svr.Post("/deregister", [](const httplib::Request &req, httplib::Response &res) {
         std::string ip = req.remote_addr;
             
-        VmManager::deregisterVM(ip);
-
-        LOG_INFO("Deregistered VM with IP %s", ip.c_str());
-
-        res.status = 200;
-        res.set_content("{\"status\": \"success\"}", "application/json");
+        if (VmManager::deregisterVM(ip)) {
+            res.status = 200;
+            res.set_content("{\"status\": \"success\"}", "application/json");
+        } else {
+            res.status = 404;
+            res.set_content("{\"status\": \"failed\", \"error\": \"VM not registered\"}", "application/json");
+        }
     });
 
     svr.listen("0.0.0.0", port);

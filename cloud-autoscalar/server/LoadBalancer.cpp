@@ -21,7 +21,7 @@ void LoadBalancer::startLoadBalancer()
 
         if (data.contains("value") && data["value"].is_number_integer()) {
 
-            LOG_INFO("Value received: %d\n", data["value"].get<int>());
+            LOG_INFO("Value received: %d", data["value"].get<int>());
 
             if(!distributeWork(data["value"].get<int>())) {
                 res.status = 500;
@@ -46,7 +46,7 @@ bool LoadBalancer::distributeWork(int value) {
     int size = VmManager::getNumOfVMs();
 
     if (size == 0) {
-        LOG_ERROR("No VMs are available to distribute the traffic.\n");
+        LOG_ERROR("No VMs are available to distribute the traffic.");
         return false;
     }
 
@@ -58,7 +58,7 @@ bool LoadBalancer::distributeWork(int value) {
     std::optional<std::string> vmIP = VmManager::getVMIpAtIndex(nextIndex);
 
     if (!vmIP.has_value()) {
-        LOG_ERROR("No VMs are available to distribute the traffic.\n");
+        LOG_ERROR("No VMs are available to distribute the traffic.");
         return false;
     }
 
@@ -66,16 +66,16 @@ bool LoadBalancer::distributeWork(int value) {
 
     if (auto res = client.Get("/work?value=" + std::to_string(value));
         res && res->status >= 200 && res->status < 300) {
-        LOG_INFO("Response status: %d\n", res->status);
+        LOG_INFO("Response status: %d", res->status);
         std::lock_guard<std::mutex> lock(index_mutex);
         prevIndex = nextIndex;
 
         return true;
     } else {
         if (res) {
-            LOG_ERROR("Backend returned status: %d\n", res->status);
+            LOG_ERROR("Backend returned status: %d", res->status);
         } else {
-            LOG_ERROR("Request failed: %s\n", httplib::to_string(res.error()).c_str());
+            LOG_ERROR("Request failed: %s", httplib::to_string(res.error()).c_str());
         }
         return false;
     }

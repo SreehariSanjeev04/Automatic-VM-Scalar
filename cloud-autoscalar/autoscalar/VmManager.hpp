@@ -12,7 +12,7 @@ class VmManager {
         static std::mutex registry_mutex;
     public:
         static void registerVM(const std::string& ip);
-        static void deregisterVM(const std::string& ip);
+        static bool deregisterVM(const std::string& ip);
         static std::optional<std::string> getVMIpAtIndex(const int index);
         static int getNumOfVMs();
 };
