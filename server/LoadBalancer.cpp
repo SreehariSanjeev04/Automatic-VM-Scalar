@@ -1,191 +1,47 @@
 #include "LoadBalancer.hpp"
-#include "Logger.hpp"
-#include "httplib.h"
-#include "VMManager.hpp"
 #include "json.hpp"
-
 #include <chrono>
-#include <fstream>
 #include <filesystem>
-#include <mutex>
-
-using json = nlohmann::json;
-
-LoadBalancer::LoadBalancer(const Config &config)
-    : port(static_cast<int>(config.network.loadBalancerPort)),
-      config_(config) {}
-
-void LoadBalancer::startLoadBalancer()
-{
-    httplib::Server svr;
-
-    svr.Post(config_.network.loadBalancerPath,
-             [this](const httplib::Request &req, httplib::Response &res)
-             {
+using json=nlohmann::json;
+LoadBalancer::LoadBalancer(const Config& c,VMManager& registry)
+    : config_(c),registry_(registry),requests_(c.metricsDirectory,"proxy.csv","timestamp,backend,status,latency_ms,error"),
+      legacyRequests_(std::filesystem::path(c.metrics.filePath).parent_path().string(),"request_metrics.csv","timestamp_ms,backend_ip,latency_ms,success,http_status",true) {
+    server_.new_task_queue=[] { return new httplib::ThreadPool(16,16,128); };
+    server_.Get("/health",[](const auto&,auto& res){res.set_content("{\"status\":\"ok\"}","application/json");});
+    server_.Get("/replicas",[this](const auto&,auto& res){res.set_content(registry_.membership().dump(),"application/json");});
+    server_.Post(config_.network.loadBalancerPath,[this](const httplib::Request& req,httplib::Response& res){
+        auto start=std::chrono::steady_clock::now(); std::string backend,error,address;
+        auto fail=[&](int code,const std::string& why) { res.status=code;error=why;res.set_content(json({{"status","failed"},{"error",why}}).dump(),"application/json"); };
         try {
-            std::string body = req.body;
-
-        json data = json::parse(body);
-
-        if (data.contains("value") && data["value"].is_number_integer()) {
-
-            LOG_INFO("Value received: %d", data["value"].get<int>());
-
-            if(!distributeWork(data["value"].get<int>())) {
-                res.status = 500;
-                res.set_content("{\"status\":\"failed\", \"error\":\"Could not send the traffic\"}", "application/json");
-                return;
+            auto data=json::parse(req.body);
+            if(!data.is_object() || !data.contains("value") || !data["value"].is_number_integer() || data["value"]<0 || data["value"]>100) {
+                fail(400,"Expected integer value from 0 to 100");
+            } else {
+                auto target=registry_.acquire();
+                if(!target) fail(503,"No ready backends");
+                else {
+                    backend=target->name; address=target->ip; RequestLease lease(registry_,backend);
+                    httplib::Client client(target->ip,config_.vm.guestPort);
+                    client.set_connection_timeout(config_.network.connectionTimeoutSeconds,0);
+                    client.set_read_timeout(config_.network.requestTimeoutSeconds,0);
+                    client.set_write_timeout(config_.network.requestTimeoutSeconds,0);
+                    auto result=client.Get(config_.vm.workPath+"?n="+std::to_string(data["value"].get<int>()));
+                    if(result && result->status>=200 && result->status<300) {
+                        res.set_content(json({{"status","success"},{"backend",backend},{"result",result->body}}).dump(),"application/json");
+                    } else if(result) fail(result->status,"Backend: "+result->body);
+                    else {
+                        if(result.error()==httplib::Error::Connection) registry_.state(backend,"unready");
+                        fail(result.error()==httplib::Error::Read?504:502,httplib::to_string(result.error()));
+                    }
+                }
             }
-            res.status = 200;
-            res.set_content("{\"status\":\"success\"}", "application/json");
-        } else {
-            res.status = 400;
-            res.set_content("{\"status\":\"failed\",\"error\":\"Missing parameter 'value'\"}", "application/json");
-        }
-        } catch (const json::parse_error& err) {
-            res.status = 400;
-            res.set_content("{\"status\":\"Malformed JSON\"}", "application/json");
-        } });
-
-    svr.listen(config_.network.loadBalancerBindAddress, port);
+        } catch(const json::exception&) { fail(400,"Malformed JSON or invalid value"); }
+        catch(const std::exception& e) { fail(500,e.what()); }
+        auto elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
+        requests_.row({backend,std::to_string(res.status),std::to_string(elapsed),error});
+        legacyRequests_.row({address,std::to_string(elapsed),res.status>=200 && res.status<300?"1":"0",std::to_string(res.status)});
+    });
 }
-
-static void recordRequestMetrics(
-    const std::string &backendIP,
-    double latencyMs,
-    bool success,
-    int statusCode)
-{
-    static std::mutex metricsMutex;
-    std::lock_guard<std::mutex> lock(metricsMutex);
-
-    std::error_code error;
-    std::filesystem::create_directories("results", error);
-
-    if (error)
-    {
-        LOG_ERROR("Could not create results directory");
-        return;
-    }
-
-    const std::string filename = "results/request_metrics.csv";
-
-    bool writeHeader = true;
-
-    if (std::filesystem::exists(filename, error) && !error)
-    {
-        auto size = std::filesystem::file_size(filename, error);
-
-        if (!error && size > 0)
-            writeHeader = false;
-    }
-
-    std::ofstream file(filename, std::ios::app);
-
-    if (!file)
-    {
-        LOG_ERROR("Could not open request metrics CSV");
-        return;
-    }
-
-    if (writeHeader)
-    {
-        file << "timestamp_ms,backend_ip,latency_ms,success,http_status\n";
-    }
-
-    auto now = std::chrono::system_clock::now();
-
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         now.time_since_epoch())
-                         .count();
-
-    file << timestamp << ","
-         << backendIP << ","
-         << latencyMs << ","
-         << (success ? 1 : 0) << ","
-         << statusCode << "\n";
-}
-
-bool LoadBalancer::distributeWork(int value)
-{
-    int size = VMManager::getNumOfVMs();
-
-    if (size == 0)
-    {
-        LOG_ERROR("No VMs are available to distribute the traffic.");
-        return false;
-    }
-
-    int nextIndex;
-    {
-        std::lock_guard<std::mutex> lock(index_mutex);
-
-        size = VMManager::getNumOfVMs();
-
-        if (size == 0)
-        {
-            LOG_ERROR("No VMs are available to distribute the traffic.");
-            return false;
-        }
-
-        nextIndex = (prevIndex + 1) % size;
-        prevIndex = nextIndex;
-    }
-    std::optional<std::string> vmIP = VMManager::getVMIpAtIndex(nextIndex);
-
-    if (!vmIP.has_value())
-    {
-        LOG_ERROR("No VMs are available to distribute the traffic.");
-        return false;
-    }
-
-    LOG_INFO("Selected backend: %s", vmIP.value().c_str());
-    httplib::Client client(vmIP.value(), config_.vm.guestPort);
-    client.set_connection_timeout(
-        config_.network.connectionTimeoutSeconds, 0);
-    client.set_read_timeout(
-        config_.network.requestTimeoutSeconds, 0);
-    client.set_write_timeout(
-        config_.network.requestTimeoutSeconds, 0);
-
-    LOG_INFO("Sending work to VM with IP %s", vmIP.value().c_str());
-
-    auto requestStart = std::chrono::steady_clock::now();
-
-    auto res = client.Get(
-        config_.vm.workPath + "?n=" + std::to_string(value));
-
-    auto requestEnd = std::chrono::steady_clock::now();
-
-    double latencyMs =
-        std::chrono::duration<double, std::milli>(
-            requestEnd - requestStart)
-            .count();
-
-    bool success = res && res->status >= 200 && res->status < 300;
-    int statusCode = res ? res->status : 0;
-
-    recordRequestMetrics(
-        vmIP.value(),
-        latencyMs,
-        success,
-        statusCode);
-
-    if (success)
-    {
-        LOG_INFO("Response status: %d", res->status);
-
-        return true;
-    }
-    else
-    {
-        if (res)
-            LOG_ERROR("Backend returned status: %d", res->status);
-        else
-            LOG_ERROR(
-                "Request failed: %s",
-                httplib::to_string(res.error()).c_str());
-
-        return false;
-    }
-}
+bool LoadBalancer::bind() { return server_.bind_to_port(config_.network.loadBalancerBindAddress,config_.network.loadBalancerPort); }
+void LoadBalancer::listen() { server_.listen_after_bind(); }
+void LoadBalancer::stop() { server_.stop(); }

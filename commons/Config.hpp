@@ -7,15 +7,15 @@ struct Config
     struct Libvirt
     {
         std::string uri = "qemu:///system";
-        std::string storagePool = "images";
-        std::string baseImage = "/mnt/LinuxData/images/base.qcow2";
+        std::string storagePool = "default";
+        std::string baseImage = "/var/lib/libvirt/images/autoscaler-base.qcow2";
     } libvirt;
 
     struct VM
     {
-        std::string initialName = "vm";
-        unsigned int vcpus = 2;
-        unsigned long memoryMiB = 2048;
+        std::string initialName = "ubuntu_base";
+        unsigned int vcpus = 1;
+        unsigned long memoryMiB = 1024;
         unsigned int initialReplicas = 1;
         unsigned int maxReplicas = 2;
         unsigned int guestPort = 8080;
@@ -25,7 +25,6 @@ struct Config
 
     struct Scaling
     {
-        bool scaleInEnabled = true;
         double scaleOutCpuThreshold = 75.0;
         double scaleInCpuThreshold = 25.0;
         unsigned int requiredOverloadCount = 3;
@@ -33,6 +32,9 @@ struct Config
         unsigned int monitorIntervalSeconds = 2;
         unsigned int warmupSeconds = 30;
         unsigned int cooldownSeconds = 30;
+        unsigned int drainTimeoutSeconds = 60;
+        unsigned int readinessTimeoutSeconds = 120;
+        bool scaleInEnabled = true;
     } scaling;
 
     struct Network
@@ -43,23 +45,25 @@ struct Config
         std::string loadBalancerPath = "/work";
         unsigned int connectionTimeoutSeconds = 2;
         unsigned int requestTimeoutSeconds = 30;
+        unsigned int clientTimeoutSeconds = 35;
     } network;
 
     struct Traffic
     {
-        unsigned int highThreads = 1;
+        unsigned int highThreads = 8;
         unsigned int highRequestsPerThread = 1;
-        int highValue = 20;
         unsigned int highRequestDelayMilliseconds = 1000;
+        int highValue = 14;
+        double highRate = 8.0;
+        double lowRate = 0.8;
+        unsigned int queueCapacity = 32;
         unsigned int lowRequestsPerThread = 1;
-        int lowValue = 2;
+        int lowValue = 14;
         unsigned int lowRequestDelayMilliseconds = 2000;
     } traffic;
 
-    struct Metrics
-    {
-        std::string filePath = "results/vm_metrics.csv";
-    } metrics;
-
+    struct Metrics { std::string filePath = "results/vm_metrics.csv"; } metrics;
+    std::string stateFile = ".autoscaler-state.json";
+    std::string metricsDirectory = "runs/current";
     static Config load(const std::string &path);
 };

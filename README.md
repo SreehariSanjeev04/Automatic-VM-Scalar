@@ -1,461 +1,175 @@
 # Cloud AutoScalar
 
-Cloud AutoScalar is a C++20 VM autoscaling prototype built on libvirt and
-QEMU/KVM. It monitors the CPU usage of a running VM, routes work to registered
-VMs, and creates or removes VM replicas when sustained load crosses configured
-thresholds.
+C++20/libvirt implementation of Assignment 1. It runs a concurrent Catalan
+computation service, monitors domain CPU, and scales **1 → 2 → 1** replicas.
+Runtime monitoring, provisioning, and deletion call libvirt directly.
 
-The repository builds two programs:
+## Build and test
 
-- `cloud_autoscalar`: the orchestrator, load balancer, VM monitor, and scaler.
-- `cloud_autoscalar_client`: an interactive traffic-generation CLI.
-
-## Metrics
-
-Run the plotting script after collecting metrics:
+Debian/Ubuntu host dependencies:
 
 ```bash
-venv/bin/python plot_metrics.py
+sudo apt-get update
+sudo apt-get install -y build-essential cmake pkg-config libvirt-dev \
+  libvirt-daemon-system libvirt-clients qemu-system-x86 qemu-utils python3 python3-matplotlib
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel 2
+ctest --test-dir build --output-on-failure
 ```
 
-The generated graphs are saved under `results/plots/`:
+Build outputs: `cloud_autoscalar`, `cloud_autoscalar_client`, `catalan-server`.
+Tests bind loopback sockets and require port 8080 to be free. They cover config
+validation, exact arithmetic, CPU policy, concurrent routing, continuous client
+modes, clone/readiness failures, draining, partial deletion, and restart recovery.
+The integration fixtures use mock guests; a successful CTest run is not a real
+VM scaling demonstration.
 
-![VM CPU utilization](./images/vm_cpu.png)
+## Prepare the guest and backing image
 
-![Request latency and throughput](./images/request_metrics.png)
+The sample config targets the existing `ubuntu_base` domain, the `default` NAT
+network and storage pool, and a QCOW2 backing image at
+`/var/lib/libvirt/images/autoscaler-base.qcow2`. Each server has **1 vCPU and
+1024 MiB RAM**. The initial VM is pre-existing; replicas get separate overlays.
+The initial disk must never be used as a live writable backing image.
 
-Runtime CSV files and generated plots in `results/` are local experiment
-artifacts and are excluded from version control.
+1. Enable KVM/libvirt and the default NAT network. If missing, define the network
+   from `/usr/share/libvirt/networks/default.xml`. Give your user access to
+   `qemu:///system` through the host's libvirt/polkit configuration.
+2. Copy `computation/Catalan.cpp`, `computation/Catalan.hpp`,
+   `computation/catalan-server.service`, `commons/httplib.h`, and
+   `tools/provision_guest.sh` into one directory in the Ubuntu guest. Run
+   `sh provision_guest.sh .` there. It builds the worker and enables its systemd
+   service. Any previous `cloud-worker` service is disabled to avoid port conflicts.
+3. Configure persistent netplan DHCP matching `en*` rather than a particular
+   interface name/MAC. Set `dhcp-identifier: mac` so clones do not reuse a copied
+   DHCP client identity. Disable cloud-init network regeneration if it owns the
+   netplan file. Check that both the original and a clone obtain distinct leases.
+4. Verify `curl http://GUEST_IP:8080/health` returns `workload: catalan` and
+   `curl 'http://GUEST_IP:8080/binary-trees?n=10'` returns `16796`.
+5. Run `python3 tools/prepare_image.py autoscaler.config`. This requests a clean
+   shutdown, creates an offline libvirt volume copy, and restarts the original VM.
+   It refuses an existing base and never forces poweroff. Treat the copied base as
+   immutable. Refreshing/replacing a base requires removing dependent overlays
+   and preparing a new image explicitly.
 
-## Architecture
+Clones use BIOS/Q35, a virtio disk/NIC, and the `default` network, matching the
+current initial VM. Hardware virtualization and sufficient host RAM are required.
+The guest service has no artificial memory cap. Inputs 0–100 are accepted by the
+Catalan server, but the deliberately naive recursion is exponential: large inputs
+may never finish in useful time. **Catalan counting is different from materializing
+one full binary tree.** The earlier full-tree worker remains an optional experiment
+under `cloud-autoscalar/worker`; do not run both services on port 8080.
 
-```text
-cloud_autoscalar_client
-        |
-        | POST /work {"value": N}
-        v
-Host LoadBalancer :8080
-        |
-        | GET /binary-trees?n=N
-        v
-Registered guest VMs :8080
-        ^
-        |
-Autoscaler <-> libvirt qemu:///system
-    |       |
-    |       +-- VMMonitor reads CPU usage
-    +---------- VMCloner creates/removes replicas
-```
+## Configuration and running
 
-### Runtime components
-
-1. **Orchestrator**  
-   [Orchestrator.cpp](./orchestrator/Orchestrator.cpp) connects to the system
-   libvirt instance, initializes the VM cloner and autoscaler, and starts the
-   host load balancer.
-
-2. **Autoscaler**  
-   [Autoscaler.cpp](./autoscaler/Autoscaler.cpp) expects an initial running
-   domain named `vm`. It discovers the VM's DHCP address, waits for its
-   application on port `8080`, and registers its address. Sustained CPU usage
-   above `75%` triggers scale-out after three observations. When more than one
-   replica exists, CPU usage below `25%` for five observations triggers
-   scale-in.
-
-3. **VM cloner**  
-   New replicas are named `vm-2`, `vm-3`, and so on. They are cloned from the
-   libvirt-managed base volume and attached to libvirt's `default` network.
-   The configured maximum is currently two replicas.
-
-4. **Load balancer**  
-   The host listener binds to `0.0.0.0:8080`. It accepts `POST /work` requests,
-   selects registered VMs round-robin, and forwards work to
-   `GET /binary-trees?n=<value>`.
-
-5. **Client**  
-   The CLI sends requests to `192.168.122.1:8080`. Use `increase` for high
-   traffic, `decrease` for low traffic, and `exit` to stop the client.
-
-6. **Guest computation server**  
-   [Catalan.cpp](./computation/Catalan.cpp) runs inside each guest VM. It
-   exposes `GET /binary-trees?n=<integer>` on `0.0.0.0:8080` and calculates the
-   number of binary trees using a deliberately expensive recursive algorithm.
-   The server must be compiled and managed by systemd inside the initial VM.
-   Provision the service in the base VM image so that every autoscaler replica
-   starts the same server.
-
-## Host dependencies
-
-The commands below target Debian or Ubuntu:
+`autoscaler.config` is JSON. Relative state/metrics paths resolve against the
+configuration file directory, independent of the process working directory.
+The defaults use 1 initial/2 maximum VMs, thresholds 75%/25%, three overloaded or
+five underloaded samples, 2-second sampling, 30-second warmup/cooldown, a 120-second
+readiness deadline, and a 60-second drain deadline. Configure backend request and
+client timeouts separately; the client deadline must be longer.
 
 ```bash
-sudo apt update
-sudo apt install -y \
-  build-essential \
-  cmake \
-  pkg-config \
-  libvirt-dev \
-  libvirt-daemon-system \
-  libvirt-clients \
-  qemu-system-x86 \
-  qemu-utils \
-  curl
+./build/cloud_autoscalar autoscaler.config
+./build/cloud_autoscalar_client autoscaler.config
 ```
 
-Enable libvirt and add the current user to the required groups:
+The client accepts `increase`, `decrease`, `stop`, `exit`. Modes remain active
+until changed. They use configured rates and a fixed-size worker pool/bounded
+queue, so adding a replica does not automatically increase offered load. Queued
+requests from an old mode are discarded and counted when modes change. Active
+requests finish under the configured deadline.
+
+HTTP interfaces:
+
+- Host `POST /work {"value":14}` → JSON status, selected backend, and result.
+- Host `GET /replicas` → membership version, ready replicas, all backend states.
+- Host and guest `GET /health`; guest response identifies the Catalan workload.
+- Guest `GET /binary-trees?n=14` → exact decimal Catalan result. Integer validation
+  rejects trailing garbage, negatives, values above 100, and overflowed inputs.
+
+The client polls membership every two seconds and reports additions/removals.
+The load balancer handles routing updates behind the stable client endpoint.
+Invalid work returns 400, no ready backend 503, connection failure 502, and read
+failure/timeout 504. Requests are not retried automatically after a timeout.
+
+## Lifecycle safety and recovery
+
+The controller samples CPU separately from its serialized lifecycle worker.
+The first sample, stopped domains, CPU counter resets, and errors do not count as
+low utilization. Scale-out publishes a VM only after checking all reported DHCP addresses for successful
+HTTP health, including when a stale lease is returned first. Scale-in removes eligibility, drains active requests, then destroys,
+undefines, and deletes the owned overlay. A drain timeout cancels removal.
+
+A durable JSON journal records resource names, ownership, and cleanup phases;
+created domains have matching libvirt ownership metadata. Startup adopts healthy
+owned replicas and retries incomplete cleanup. Failed cleanup retains its journal
+entry and occupies capacity, avoiding silent leaks or excess VMs. A separate
+process lock prevents two controllers from using one journal. Name collisions
+with unrelated domains are refused. The initial VM and immutable base are never
+scale-in targets. Keep the journal if you intend to restart with existing replicas.
+
+SIGINT/SIGTERM stops traffic and scaling, completes or rolls back in-progress
+lifecycle work, and leaves healthy VMs available for restart. No automatic deletion
+of the initial VM, user disks, or immutable template occurs.
+
+## Calibrate and run the demonstration
+
+Calibrate with the guest idle and before starting the client:
 
 ```bash
-sudo systemctl enable --now libvirtd
-sudo usermod -aG libvirt,kvm "$USER"
+python3 tools/calibrate.py autoscaler.config --guest 192.168.122.86
+python3 tools/demo.py demo.config --build build
+python3 tools/plot.py runs/demo-TIMESTAMP
 ```
 
-Log out and back in after changing group membership. Confirm that the system
-connection works:
+Calibration reuses the existing recursive workload, chooses a modest input, and
+measures CPU seconds/request through libvirt. It writes `demo.config` with the
+same input in both modes and rates targeting approximately 90%/9% of one VM.
+The high rate stays fixed after scale-out, ideally giving about 45% per replica.
+Only one replica should be added; sample config maximum is two. Recalibrate when
+changing host, guest, compiler optimization, or workload code.
+
+The demo creates its own orchestrator/client (or use `--attach` for an existing
+orchestrator). It performs low load for 60 seconds, high load until the second VM
+is ready plus 60 seconds, then low load until scale-in plus 30 seconds. Each scaling
+phase has a five-minute deadline. It verifies both VM resource sizes, requests
+reaching both replicas, successful requests, and lower initial-VM CPU after scale-out.
+Use `--restart-check` to additionally pause new requests, restart the orchestrator
+with two replicas, verify adoption, and resume the same high rate for 60 seconds.
+Each run needs a fresh metrics directory. A failure leaves diagnostic logs and a
+`summary.json` with `success: false`; it does not delete unrelated resources.
+
+CSV output includes domain CPU, lifecycle events, per-request status/backend/latency,
+and client mode/membership/drop events. Plots export PNG and SVG. Domain CPU includes
+hypervisor execution attributed to the domain and can differ from guest process
+CPU (`top`); explain sampling and virtualization overhead during the viva.
+
+## Compatibility with the pulled metrics/cooldown commits
+
+The existing `scaling.scale_in_enabled`, `scaling.cooldownSeconds`,
+`traffic.high_request_delay_milliseconds`, and `metrics.file_path` keys remain
+supported. `cooldown_seconds` is the preferred spelling; conflicting aliases are
+rejected. Continuous traffic uses explicit `high_rate`/`low_rate` when provided;
+otherwise legacy delay fields derive rates. Finite request-count fields are
+accepted for old configs but no longer stop a continuous traffic mode.
+
+Legacy CSV schemas remain available: `metrics.file_path` contains
+`timestamp_ms,vm_name,cpu_percent,replica_count`, and the sibling
+`request_metrics.csv` contains
+`timestamp_ms,backend_ip,latency_ms,success,http_status`. Existing
+`plot_metrics.py` and committed `images/` examples are preserved. Run it from the
+project root for the default `results/` files, or pass `--results-dir RUN_DIRECTORY`; install `tools/requirements.txt`
+for its pandas/matplotlib dependencies. Calibrated runs put compatible CSVs in
+their run directory as well as the newer detailed CSV files.
+
+## Submission
 
 ```bash
-virsh -c qemu:///system list --all
+python3 tools/package.py GROUP_NUMBER --results runs/demo-TIMESTAMP
 ```
 
-The default libvirt network must be active:
-
-```bash
-virsh -c qemu:///system net-start default
-virsh -c qemu:///system net-autostart default
-```
-
-If the network is already active, `net-start` may report that no action is
-needed.
-
-## Storage and VM prerequisites
-
-The current implementation uses these values in
-[Orchestrator.cpp](./orchestrator/Orchestrator.cpp) and
-[Autoscaler.cpp](./autoscaler/Autoscaler.cpp):
-
-| Item | Required value |
-|---|---|
-| Libvirt URI | `qemu:///system` |
-| Storage pool | `images` |
-| Base volume path | `/mnt/LinuxData/images/base.qcow2` |
-| Initial VM domain | `vm` |
-| Guest application port | `8080` |
-| Guest application endpoint | `GET /binary-trees?n=<value>` |
-| Host load balancer | `0.0.0.0:8080` |
-| Client target | `192.168.122.1:8080` |
-
-These values, along with VM sizing, replica limits, scaling thresholds,
-timeouts, and traffic volume, are configured in
-[autoscaler.config](./autoscaler.config). The file is JSON and can be copied
-and edited for another environment.
-
-Metrics are written to the configured `metrics.file_path`. The default is
-`results/vm_metrics.csv`, relative to the orchestrator's working directory.
-Set an absolute path or another relative path when needed:
-
-```json
-"metrics": {
-  "file_path": "/var/lib/cloud-autoscalar/vm_metrics.csv"
-}
-```
-
-High-load requests wait for `traffic.high_request_delay_milliseconds` between
-requests in each client thread. The default is 1000 milliseconds (one second).
-
-To disable automatic scale-in while keeping scale-out enabled, set
-`scale_in_enabled` to `false` in the `scaling` section:
-
-```json
-"scaling": {
-  "scale_in_enabled": false
-}
-```
-
-Set it to `true` to enable scale-in again. The setting is read when the
-orchestrator starts.
-
-The base image must be an existing libvirt-managed volume in the `images`
-storage pool. The pool must be active:
-
-```bash
-virsh -c qemu:///system pool-info images
-virsh -c qemu:///system vol-list images
-```
-
-If the pool does not exist, define it against the directory containing the
-base image. Do not define a second pool with the same name:
-
-```bash
-sudo mkdir -p /mnt/LinuxData/images
-sudo virsh pool-define-as images dir --target /mnt/LinuxData/images
-sudo virsh pool-start images
-sudo virsh pool-autostart images
-```
-
-Place the base image at the required path and verify it is visible to libvirt:
-
-```bash
-virsh -c qemu:///system vol-info base.qcow2 --pool images
-```
-
-The initial VM must already exist and be running:
-
-```bash
-virsh -c qemu:///system dominfo vm
-virsh -c qemu:///system domifaddr vm --source lease
-```
-
-Inside `vm`, build the guest computation server from
-[Catalan.cpp](./computation/Catalan.cpp):
-
-```bash
-sudo install -d /opt/cloud-autoscalar
-sudo install -m 0644 computation/Catalan.cpp /opt/cloud-autoscalar/Catalan.cpp
-sudo install -m 0644 commons/httplib.h /opt/cloud-autoscalar/httplib.h
-sudo c++ -std=c++20 -O2 -pthread \
-  -I/opt/cloud-autoscalar \
-  /opt/cloud-autoscalar/Catalan.cpp \
-  -o /opt/cloud-autoscalar/catalan-server
-```
-
-Create `/etc/systemd/system/catalan-server.service` inside the VM. Replace
-`vmuser` with the unprivileged user that should run the server:
-
-```ini
-[Unit]
-Description=Cloud AutoScalar Catalan computation server
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=vmuser
-WorkingDirectory=/opt/cloud-autoscalar
-ExecStart=/opt/cloud-autoscalar/catalan-server
-Restart=on-failure
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload systemd, enable the service at boot, and start it:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now catalan-server.service
-sudo systemctl status catalan-server.service
-```
-
-Verify the service before using the VM as the base image:
-
-```bash
-curl "http://127.0.0.1:8080/binary-trees?n=20"
-sudo journalctl -u catalan-server.service --no-pager
-```
-
-The service must be active in the initial VM before the autoscaler starts.
-Because replicas are cloned from the base image, repeat this provisioning
-after changing the server binary or unit file and recreate any existing
-replicas if they should receive the update.
-
-The guest server listens on `0.0.0.0:8080` and implements:
-
-```text
-GET /binary-trees?n=<integer>
-```
-
-The autoscaler waits up to 60 seconds for both the VM DHCP lease and the guest
-application. The orchestrator will not start the host load balancer until this
-initial readiness check succeeds.
-
-Check guest readiness from the host before starting the orchestrator:
-
-```bash
-curl "http://<VM_IP>:8080/binary-trees?n=20"
-```
-
-Replace `<VM_IP>` with the address returned by `domifaddr`.
-
-## Build
-
-From the repository root:
-
-```bash
-cmake -S . -B build
-cmake --build build --parallel
-```
-
-The resulting binaries are:
-
-```text
-build/cloud_autoscalar
-build/cloud_autoscalar_client
-```
-
-## Run
-
-Start the orchestrator first:
-
-```bash
-sudo ./build/cloud_autoscalar
-```
-
-Use an alternate configuration file with:
-
-```bash
-sudo ./build/cloud_autoscalar /path/to/autoscaler.config
-```
-
-Use `sudo` only if the current user cannot access the system libvirt socket.
-The orchestrator should log the following startup phases:
-
-```text
-Connecting to libvirt
-Connected to libvirt
-Initializing VM cloner
-Initializing autoscaler
-Initial VM registered: vm
-Starting load balancer on port 8080
-```
-
-In a second terminal, start the client:
-
-```bash
-./build/cloud_autoscalar_client
-```
-
-The client also accepts an alternate configuration path:
-
-```bash
-./build/cloud_autoscalar_client /path/to/autoscaler.config
-```
-
-Available commands:
-
-```text
-> increase
-> decrease
-> exit
-```
-
-The current request settings are defined in
-[Constant.hpp](./commons/Constant.hpp). The default client configuration sends
-one request per command with one worker thread. Increase these values to
-generate a longer or heavier workload.
-
-## Verify the host load balancer
-
-The load balancer accepts JSON with an integer `value`:
-
-```bash
-curl -i \
-  -H 'Content-Type: application/json' \
-  -d '{"value":20}' \
-  http://192.168.122.1:8080/work
-```
-
-A successful request returns a JSON success response. A `500` response usually
-means that no VM is registered or that the guest application is unavailable.
-Backend connections allow up to 30 seconds for the guest application to
-complete a computation; connection establishment itself times out after two
-seconds.
-
-## Scaling behavior
-
-The autoscaler checks each active VM every two seconds:
-
-- CPU above `75%` increments that VM's overload counter.
-- Three consecutive overload observations trigger scale-out.
-- CPU below `25%` increments its low-load counter.
-- Five consecutive low-load observations across the active VMs trigger
-  scale-in.
-- Set `scaling.scale_in_enabled` to `false` to disable scale-in. Scale-out
-  remains enabled.
-- The initial VM named `vm` is never removed.
-
-Scale-out creates a replica, waits for its DHCP address, waits for its guest
-application on port `8080`, and registers it with the load balancer. Scale-in
-deregisters and removes the most recently created replica.
-
-## Troubleshooting
-
-### No orchestrator output
-
-Run the freshly built binary and confirm the build succeeded:
-
-```bash
-cmake --build build --target cloud_autoscalar
-sudo ./build/cloud_autoscalar
-```
-
-If the last message is `Waiting for DHCP lease`, check the VM state and
-libvirt lease:
-
-```bash
-virsh -c qemu:///system domstate vm
-virsh -c qemu:///system domifaddr vm --source lease
-```
-
-If the last message is `Waiting for initial VM server`, the VM is reachable
-but its application is not accepting TCP connections on port `8080`.
-
-If the load balancer reports `Failed to read connection`, the guest application
-closed the connection or did not respond within the 30-second backend request
-timeout. Test the guest endpoint directly and inspect the guest application
-logs:
-
-```bash
-curl -v "http://<VM_IP>:8080/binary-trees?n=20"
-```
-
-### Client cannot connect
-
-Confirm that the orchestrator is listening:
-
-```bash
-ss -ltn | grep ':8080'
-```
-
-Confirm the host endpoint:
-
-```bash
-curl -i http://192.168.122.1:8080/
-```
-
-`404 Not Found` for `/` is expected; the load balancer's application endpoint
-is `/work`.
-
-### No VM is available
-
-The autoscaler registers the initial VM only after its guest application is
-ready. Check the orchestrator logs and verify:
-
-```bash
-virsh -c qemu:///system list --all
-curl "http://<VM_IP>:8080/binary-trees?n=2"
-```
-
-### Build errors
-
-Check that CMake can find libvirt:
-
-```bash
-pkg-config --modversion libvirt
-```
-
-If this fails, install `libvirt-dev` and rerun configuration:
-
-```bash
-cmake -S . -B build
-```
-
-## Current limitations
-
-- Runtime paths, VM names, IP addresses, ports, thresholds, and replica limits
-  are currently compiled into the source; there is no configuration file or
-  environment-variable support yet.
-- The initial VM and guest application must be provisioned manually.
-- The guest application is not included in this repository.
-- The orchestrator currently runs continuously and is stopped with `Ctrl+C`.
-- The host load balancer and client communicate over the libvirt default
-  network address `192.168.122.1`.
+The archive is named `GROUP_NUMBER.tar.gz`. Packaging includes source, tests,
+config examples, service definitions, tooling, and selected run results. It excludes
+credentials, binaries, VM images, ISOs, and lifecycle journals. Upload it manually
+to Eduserver; the group number is supplied when packaging.

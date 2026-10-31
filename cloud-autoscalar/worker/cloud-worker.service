@@ -1,0 +1,19 @@
+[Unit]
+Description=CPU-intensive HTTP worker for the libvirt assignment
+After=network.target
+
+[Service]
+Type=simple
+User=cloud-worker
+Group=cloud-worker
+ExecStart=/opt/cloud-worker/cloud-worker
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

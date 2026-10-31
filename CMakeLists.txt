@@ -1,67 +1,39 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(cloud_autoscalar LANGUAGES CXX)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBVIRT REQUIRED IMPORTED_TARGET libvirt)
-
-add_executable(cloud_autoscalar
-    main.cpp
-    commons/Config.cpp
-    autoscaler/DiskManager.cpp
-    autoscaler/DomainXMLBuilder.cpp
-    autoscaler/LibvirtConnection.cpp
-    autoscaler/VMManager.cpp
-    autoscaler/VMCloner.cpp
-    orchestrator/Orchestrator.cpp
-    server/LoadBalancer.cpp
-    autoscaler/VMMonitor.cpp
-    autoscaler/Autoscaler.cpp
-)
-
-target_include_directories(cloud_autoscalar PRIVATE
-    autoscaler
-    client
-    commons
-    logger
-    orchestrator
-    server
-)
-
-target_link_libraries(cloud_autoscalar PRIVATE
-    Threads::Threads
-    PkgConfig::LIBVIRT
-)
-
-if (MSVC)
-    target_compile_options(cloud_autoscalar PRIVATE /W4)
-else()
-    target_compile_options(cloud_autoscalar PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-add_executable(cloud_autoscalar_client
-    commons/Config.cpp
-    client/Client.cpp
-    client/LoadGenerator.cpp
-)
-
-target_include_directories(cloud_autoscalar_client PRIVATE
-    client
-    commons
-    logger
-)
-
-target_link_libraries(cloud_autoscalar_client PRIVATE
-    Threads::Threads
-)
-
-if (MSVC)
-    target_compile_options(cloud_autoscalar_client PRIVATE /W4)
-else()
-    target_compile_options(cloud_autoscalar_client PRIVATE -Wall -Wextra -Wpedantic)
+add_library(cloud_core
+    commons/Config.cpp autoscaler/Autoscaler.cpp autoscaler/VMManager.cpp
+    autoscaler/VMMonitor.cpp autoscaler/Driver.cpp autoscaler/LibvirtConnection.cpp
+    autoscaler/DomainXMLBuilder.cpp)
+target_include_directories(cloud_core PUBLIC commons autoscaler logger)
+target_link_libraries(cloud_core PUBLIC Threads::Threads PkgConfig::LIBVIRT)
+add_executable(cloud_autoscalar main.cpp orchestrator/Orchestrator.cpp server/LoadBalancer.cpp)
+target_include_directories(cloud_autoscalar PRIVATE orchestrator server)
+target_link_libraries(cloud_autoscalar PRIVATE cloud_core)
+add_executable(cloud_autoscalar_client client/Client.cpp client/LoadGenerator.cpp commons/Config.cpp)
+target_include_directories(cloud_autoscalar_client PRIVATE client commons)
+target_link_libraries(cloud_autoscalar_client PRIVATE Threads::Threads)
+add_executable(catalan-server computation/Catalan.cpp)
+target_include_directories(catalan-server PRIVATE commons computation)
+target_link_libraries(catalan-server PRIVATE Threads::Threads)
+foreach(target cloud_core cloud_autoscalar cloud_autoscalar_client catalan-server)
+  target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+endforeach()
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(core_tests tests/core_tests.cpp)
+  target_include_directories(core_tests PRIVATE computation)
+  target_link_libraries(core_tests PRIVATE cloud_core)
+  add_test(NAME core_tests COMMAND core_tests)
+  add_executable(proxy_fixture tests/proxy_fixture.cpp server/LoadBalancer.cpp)
+  target_include_directories(proxy_fixture PRIVATE server)
+  target_link_libraries(proxy_fixture PRIVATE cloud_core)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  add_test(NAME http_integration COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/http_integration.py $<TARGET_FILE:catalan-server> $<TARGET_FILE:cloud_autoscalar> $<TARGET_FILE:cloud_autoscalar_client> ${CMAKE_SOURCE_DIR}/autoscaler.config)
+  add_test(NAME proxy_integration COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/proxy_integration.py $<TARGET_FILE:proxy_fixture> $<TARGET_FILE:cloud_autoscalar_client> ${CMAKE_SOURCE_DIR}/autoscaler.config)
 endif()

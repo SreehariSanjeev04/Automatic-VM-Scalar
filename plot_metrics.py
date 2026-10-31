@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import sys
+import argparse
 
 import pandas as pd
 import matplotlib
@@ -113,7 +114,7 @@ def make_plots(cpu, requests, start_ms):
     if not cpu.empty:
         replica_series = (
             cpu.sort_values("seconds")[["seconds", "replica_count"]]
-            .drop_duplicates("replica_count")
+            .drop_duplicates("seconds")
         )
 
         figure, axis = plt.subplots(figsize=(12, 6))
@@ -162,7 +163,7 @@ def make_plots(cpu, requests, start_ms):
             .fillna(0)
         )
         throughput_seconds = (
-            (throughput.index - request_data.index.min()).total_seconds()
+            (throughput.index - pd.to_datetime(start_ms, unit="ms", utc=True)).total_seconds()
         )
         throughput_axis.plot(
             throughput_seconds,
@@ -182,6 +183,14 @@ def make_plots(cpu, requests, start_ms):
 
 
 def main():
+    global RESULTS_DIR, PLOTS_DIR, CPU_FILE, REQUEST_FILE
+    parser = argparse.ArgumentParser(description="Plot compatible autoscaler CSV metrics")
+    parser.add_argument("--results-dir", type=Path, default=Path("results"))
+    args = parser.parse_args()
+    RESULTS_DIR = args.results_dir
+    PLOTS_DIR = RESULTS_DIR / "plots"
+    CPU_FILE = RESULTS_DIR / "vm_metrics.csv"
+    REQUEST_FILE = RESULTS_DIR / "request_metrics.csv"
     try:
         cpu, requests = load_metrics()
         make_plots(cpu, requests, experiment_start(cpu, requests))

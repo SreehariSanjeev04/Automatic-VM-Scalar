@@ -1,535 +1,186 @@
 #include "Autoscaler.hpp"
-#include "Logger.hpp"
-#include "VMManager.hpp"
-
-#include <stdexcept>
-#include <thread>
-#include <chrono>
-#include <cstdlib>
-
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-
-#include <fstream>
+#include <algorithm>
+#include <utility>
 #include <filesystem>
-#include <mutex>
-
-static void recordVMMetrics(
-    const VMStats &stats,
-    size_t replicaCount,
-    const std::string &filePath)
-{
-    static std::mutex metricsMutex;
-    std::lock_guard<std::mutex> lock(metricsMutex);
-
-    const std::filesystem::path metricsPath(filePath);
-    const auto parentDirectory = metricsPath.parent_path();
-    std::error_code error;
-    if (!parentDirectory.empty())
+#include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
+#include <iostream>
+#include <stdexcept>
+using json=nlohmann::json;
+Autoscaler::Autoscaler(const Config& c,VMManager& registry,Driver& driver)
+    : config_(c),registry_(registry),driver_(driver),policy_(c.scaling),
+      cpu_(c.metricsDirectory,"cpu.csv","timestamp,name,cpu_percent,valid,state"),
+      events_(c.metricsDirectory,"events.csv","timestamp,event,name,detail"),
+      legacyCpu_(std::filesystem::path(c.metrics.filePath).parent_path().string(),std::filesystem::path(c.metrics.filePath).filename().string(),"timestamp_ms,vm_name,cpu_percent,replica_count",true) {}
+Autoscaler::~Autoscaler() { stop(); }
+void Autoscaler::save() {
+    json items=json::array();
+    for(const auto& r:resources_) items.push_back({{"name",r.name},{"volume",r.volume},{"phase",r.phase}});
+    json document={{"owner",owner_},{"next_id",nextId_},{"resources",items}};
+    auto path=std::filesystem::path(config_.stateFile);
+    std::filesystem::create_directories(path.parent_path());
+    auto temporary=path.string()+".tmp";
     {
-        std::filesystem::create_directories(parentDirectory, error);
+        std::ofstream out(temporary); out << document.dump(2) << '\n'; out.flush();
+        if(!out) throw std::runtime_error("Cannot write lifecycle journal");
     }
-
-    if (error)
-    {
-        LOG_ERROR(
-            "Could not create metrics directory: %s",
-            error.message().c_str());
-        return;
-    }
-
-    bool writeHeader =
-        !std::filesystem::exists(metricsPath) ||
-        std::filesystem::file_size(metricsPath, error) == 0;
-
-    if (error)
-    {
-        LOG_ERROR(
-            "Could not inspect metrics file: %s",
-            error.message().c_str());
-        return;
-    }
-
-    std::ofstream file(metricsPath, std::ios::app);
-
-    if (!file)
-    {
-        LOG_ERROR("Could not open VM metrics CSV");
-        return;
-    }
-
-    if (writeHeader)
-    {
-        file << "timestamp_ms,vm_name,cpu_percent,replica_count\n";
-    }
-
-    auto now = std::chrono::system_clock::now();
-
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         now.time_since_epoch())
-                         .count();
-
-    file << timestamp << ","
-         << stats.name << ","
-         << stats.cpuUsage << ","
-         << replicaCount << "\n";
+    int fd=::open(temporary.c_str(),O_RDONLY);
+    if(fd<0 || ::fsync(fd)<0) { if(fd>=0) ::close(fd); throw std::runtime_error("Cannot sync lifecycle journal"); }
+    ::close(fd); std::filesystem::rename(temporary,path);
+    fd=::open(path.parent_path().c_str(),O_RDONLY|O_DIRECTORY);
+    if(fd>=0) { ::fsync(fd); ::close(fd); }
 }
-
-Autoscaler::Autoscaler(
-    virConnectPtr connection,
-    VMMonitor &monitor,
-    VMCloner &cloner,
-    const Config &config)
-    : connection_(connection),
-      monitor_(monitor),
-      cloner_(cloner),
-      config_(config),
-      baseImage_(config.libvirt.baseImage),
-      vcpus_(config.vm.vcpus),
-      memory_(config.vm.memoryMiB),
-      currentReplicas_(config.vm.initialReplicas),
-      maxReplicas_(config.vm.maxReplicas),
-      overloadCount_(0),
-      cpuThreshold_(config.scaling.scaleOutCpuThreshold),
-      requiredOverloadCount_(config.scaling.requiredOverloadCount),
-      scalingInProgress_(false),
-      startTime_(std::chrono::steady_clock::now()),
-      warmupPeriod_(config.scaling.warmupSeconds),
-      scaleInThreshold_(config.scaling.scaleInCpuThreshold),
-      requiredLowLoadCount_(config.scaling.requiredLowLoadCount),
-      lastScaleTime_(std::chrono::steady_clock::now()),
-      cooldownPeriod_(config.scaling.cooldownSeconds)
-{
-
-    if (!connection_)
-    {
-        throw std::runtime_error("Invalid libvirt connection");
+std::string Autoscaler::ready(const std::string& name) {
+    auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(config_.scaling.readinessTimeoutSeconds);
+    while(!stopped_ && std::chrono::steady_clock::now()<deadline) {
+        auto address=driver_.ip(name);
+        if(!address.empty() && driver_.healthy(address)) return address;
+        std::unique_lock lock(taskMutex_); wake_.wait_for(lock,std::chrono::seconds(1),[&]{return stopped_.load();});
     }
-
-    initialVMName_ = config.vm.initialName;
-
-    LOG_INFO("Discovering IP address for initial VM: %s", initialVMName_.c_str());
-    std::string ip = getVMIPv4(initialVMName_);
-
-    LOG_INFO(
-        "Waiting for initial VM server at %s:%u",
-        ip.c_str(),
-        config.vm.guestPort);
-    if (!waitForServer(ip, config.vm.guestPort))
-    {
-        throw std::runtime_error(
-            "Initial VM server application is not ready: " + initialVMName_);
-    }
-
-    VMManager::registerVM(ip);
-    activeVMs_.push_back(initialVMName_);
-    vmOverloadCounts_[initialVMName_] = 0;
-    vmLowLoadCounts_[initialVMName_] = 0;
-
-    startTime_ = std::chrono::steady_clock::now() - warmupPeriod_;
-
-    LOG_INFO("Initial VM registered: %s", initialVMName_.c_str());
-    LOG_INFO("Warm-up skipped for initial VM");
+    throw std::runtime_error("Readiness deadline/cancellation: "+name);
 }
-
-std::string Autoscaler::getVMIPv4(const std::string &vmName)
-{
-
-    virDomainPtr domain =
-        virDomainLookupByName(connection_, vmName.c_str());
-
-    if (!domain)
-    {
-        throw std::runtime_error("VM not found: " + vmName);
-    }
-
-    LOG_INFO("Waiting for DHCP lease for VM: %s", vmName.c_str());
-
-    for (int attempt = 0; attempt < 60; attempt++)
-    {
-
-        virDomainInterfacePtr *interfaces = nullptr;
-
-        int count = virDomainInterfaceAddresses(
-            domain,
-            &interfaces,
-            VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE,
-            0);
-
-        if (count >= 0)
-        {
-
-            for (int i = 0; i < count; i++)
-            {
-
-                for (unsigned int j = 0;
-                     j < interfaces[i]->naddrs;
-                     j++)
-                {
-
-                    if (interfaces[i]->addrs[j].type ==
-                        VIR_IP_ADDR_TYPE_IPV4)
-                    {
-
-                        std::string ip =
-                            interfaces[i]->addrs[j].addr;
-
-                        for (int k = 0; k < count; k++)
-                        {
-                            virDomainInterfaceFree(interfaces[k]);
-                        }
-
-                        std::free(interfaces);
-                        virDomainFree(domain);
-
-                        return ip;
-                    }
-                }
-            }
-
-            for (int i = 0; i < count; i++)
-            {
-                virDomainInterfaceFree(interfaces[i]);
-            }
-
-            std::free(interfaces);
+void Autoscaler::initialize() {
+    owner_=driver_.preflight();
+    if(std::filesystem::exists(config_.stateFile)) {
+        std::ifstream in(config_.stateFile); json document; in>>document;
+        if(document.at("owner")!=owner_) throw std::runtime_error("Journal belongs to a different initial VM");
+        nextId_=document.at("next_id").get<unsigned>();
+        for(const auto& r:document.at("resources")) {
+            Resource item{r.at("name"),r.at("volume"),r.at("phase")};
+            if(item.name==config_.vm.initialName || item.volume!=item.name+"-"+owner_+".qcow2") throw std::runtime_error("Invalid owned-resource journal");
+            resources_.push_back(item);
         }
-
-        std::this_thread::sleep_for(
-            std::chrono::seconds(1));
     }
-
-    virDomainFree(domain);
-
-    LOG_ERROR("Timed out waiting for DHCP lease for VM: %s", vmName.c_str());
-    throw std::runtime_error(
-        "Could not obtain DHCP IP for " + vmName);
+    registry_.put({config_.vm.initialName,ready(config_.vm.initialName),"ready",false,0});
+    for(auto& r:resources_) {
+        if(r.phase!="cleanup" && driver_.ownedDomain(r,owner_)) {
+            try {
+                registry_.put({r.name,ready(r.name),"ready",true,0}); r.phase="ready";
+                events_.row({"adopted",r.name,"restart reconciliation"});
+                continue;
+            } catch(const std::exception& e) { events_.row({"recovery_failed",r.name,e.what()}); }
+        }
+        r.phase="cleanup"; registry_.put({r.name,"","cleanup",true,0});
+    }
+    save(); reconcile();
+    events_.row({"initial_ready",config_.vm.initialName,owner_});
 }
-
-bool Autoscaler::waitForServer(
-    const std::string &ip,
-    int port)
-{
-    LOG_INFO("Checking server readiness at %s:%d", ip.c_str(), port);
-
-    for (int attempt = 0; attempt < 60; attempt++)
-    {
-
-        int sock = socket(AF_INET, SOCK_STREAM, 0);
-
-        if (sock < 0)
-        {
-            throw std::runtime_error("Socket creation failed");
-        }
-
-        sockaddr_in address{};
-
-        address.sin_family = AF_INET;
-        address.sin_port = htons(port);
-
-        if (inet_pton(AF_INET, ip.c_str(), &address.sin_addr) != 1)
-        {
-            close(sock);
-            throw std::runtime_error("Invalid server IP: " + ip);
-        }
-
-        bool connected =
-            connect(
-                sock,
-                reinterpret_cast<sockaddr *>(&address),
-                sizeof(address)) == 0;
-
-        close(sock);
-
-        if (connected)
-        {
-            return true;
-        }
-
-        std::this_thread::sleep_for(
-            std::chrono::seconds(1));
-    }
-
-    LOG_ERROR("Timed out waiting for server at %s:%d", ip.c_str(), port);
-    return false;
+void Autoscaler::eraseResource(const std::string& name) {
+    resources_.erase(std::remove_if(resources_.begin(),resources_.end(),[&](const auto& r){return r.name==name;}),resources_.end());
 }
-
-void Autoscaler::evaluate(const VMStats &stats)
-{
-    if (stats.state != VIR_DOMAIN_RUNNING)
-    {
-        vmOverloadCounts_[stats.name] = 0;
-        vmLowLoadCounts_[stats.name] = 0;
-        return;
-    }
-
-    auto elapsed = std::chrono::steady_clock::now() - startTime_;
-
-    if (elapsed < warmupPeriod_)
-    {
-        return;
-    }
-
-    LOG_INFO("%s CPU: %.2f%%", stats.name.c_str(), stats.cpuUsage);
-
-    if (stats.cpuUsage > cpuThreshold_)
-    {
-        if (vmOverloadCounts_[stats.name] < requiredOverloadCount_)
-        {
-            vmOverloadCounts_[stats.name]++;
-        }
-        vmLowLoadCounts_[stats.name] = 0;
-
-        LOG_INFO(
-            "%s overload count: %u/%u",
-            stats.name.c_str(),
-            vmOverloadCounts_[stats.name],
-            requiredOverloadCount_);
-    }
-    else if (config_.scaling.scaleInEnabled &&
-             stats.cpuUsage < config_.scaling.scaleInCpuThreshold)
-    {
-        if (vmLowLoadCounts_[stats.name] < requiredLowLoadCount_)
-        {
-            vmLowLoadCounts_[stats.name]++;
-        }
-        vmOverloadCounts_[stats.name] = 0;
-
-        LOG_INFO(
-            "%s low-load count: %u/%u",
-            stats.name.c_str(),
-            vmLowLoadCounts_[stats.name],
-            requiredLowLoadCount_);
-    }
-    else
-    {
-        vmOverloadCounts_[stats.name] = 0;
-        vmLowLoadCounts_[stats.name] = 0;
-    }
-}
-
-void Autoscaler::monitorAllVMs()
-{
-    for (const auto &vmName : activeVMs_)
-    {
-        try
-        {
-            VMStats stats = monitor_.monitor(vmName);
-            evaluate(stats);
-
-            recordVMMetrics(
-                stats,
-                activeVMs_.size(),
-                config_.metrics.filePath);
-        }
-        catch (const std::exception &e)
-        {
-            LOG_ERROR("Failed to monitor %s: %s", vmName.c_str(), e.what());
-        }
-    }
-
-    if (scalingInProgress_)
-    {
-        return;
-    }
-
-    if (hasScaled_)
-    {
-        auto elapsed = std::chrono::steady_clock::now() - lastScaleTime_;
-
-        if (elapsed < cooldownPeriod_)
-        {
-            LOG_INFO("Scaling cooldown active");
-            return;
-        }
-    }
-
-    // Scale-out decision
-    if (currentReplicas_ < maxReplicas_)
-    {
-        for (const auto &vmName : activeVMs_)
-        {
-            if (vmOverloadCounts_[vmName] >= requiredOverloadCount_)
-            {
-                LOG_INFO("Sustained overload detected");
-                scaleOut();
-                return;
+void Autoscaler::reconcile() {
+    // The lifecycle worker is the sole owner of the journal and lifecycle driver.
+    for(const auto& backend:registry_.snapshot()) {
+        if(backend.state=="cleanup") {
+            auto it=std::find_if(resources_.begin(),resources_.end(),[&](auto& r){return r.name==backend.name;});
+            if(it==resources_.end()) continue;
+            try {
+                driver_.remove(*it,owner_); registry_.erase(backend.name); eraseResource(backend.name); save();
+                events_.row({"cleanup_complete",backend.name,""});
+            } catch(const std::exception& e) { events_.row({"cleanup_failed",backend.name,e.what()}); }
+        } else if(backend.state=="unready") {
+            auto address=driver_.ip(backend.name);
+            if(driver_.healthy(address) && backend.inFlight==0) {
+                registry_.put({backend.name,address,"ready",backend.owned,0});
+                ++epoch_; events_.row({"healthy_again",backend.name,address});
             }
         }
     }
-
-    // Scale-in decision
-    if (!config_.scaling.scaleInEnabled || currentReplicas_ <= 1)
-    {
-        return;
-    }
-
-    bool allVMsUnderloaded = true;
-
-    for (const auto &vmName : activeVMs_)
-    {
-        if (vmLowLoadCounts_[vmName] < requiredLowLoadCount_)
+}
+void Autoscaler::start() { worker_=std::thread([this]{loop();}); }
+void Autoscaler::stop() {
+    stopped_=true; wake_.notify_all(); if(worker_.joinable()) worker_.join();
+}
+void Autoscaler::schedule(const std::string& action) {
+    std::lock_guard lock(taskMutex_);
+    if(stopped_ || busy_.exchange(true)) return;
+    task_=action; wake_.notify_all();
+}
+void Autoscaler::loop() {
+    while(!stopped_) {
+        std::string action;
         {
-            allVMsUnderloaded = false;
-            break;
+            std::unique_lock lock(taskMutex_);
+            wake_.wait_for(lock,std::chrono::seconds(2),[&]{return stopped_ || !task_.empty();});
+            if(stopped_) break;
+            action=std::exchange(task_,{});
         }
-    }
-
-    if (allVMsUnderloaded)
-    {
-        LOG_INFO("Sustained low load detected");
-        scaleIn();
+        try {
+            if(action=="out") scaleOut();
+            else if(action=="in") scaleIn();
+            else reconcile();
+        } catch(const std::exception& e) { events_.row({"lifecycle_error","",e.what()}); std::cerr<<e.what()<<'\n'; }
+        if(!action.empty()) { ++epoch_; busy_=false; }
     }
 }
-
-void Autoscaler::scaleOut()
-{
-    if (currentReplicas_ >= maxReplicas_ || scalingInProgress_)
-        return;
-
-    scalingInProgress_ = true;
-
-    std::string newVMName =
-        config_.vm.replicaNamePrefix +
-        std::to_string(currentReplicas_ + 1);
-
-    try
-    {
-        LOG_INFO("Creating %s", newVMName.c_str());
-
-        if (!cloner_.clone(
-                newVMName,
-                baseImage_,
-                vcpus_,
-                memory_))
-        {
-            LOG_ERROR("Failed to clone VM: %s", newVMName.c_str());
-            return;
+void Autoscaler::tick(Driver& monitoring) {
+    if(seenEpoch_!=epoch_.load()) { seenEpoch_=epoch_.load(); policy_.reset(); }
+    auto backends=registry_.snapshot();
+    bool high=false, low=!backends.empty(), readyOnly=true;
+    for(const auto& b:backends) {
+        bool valid=false; double value=0; int state=0;
+        if(b.state=="ready") {
+            try {
+                auto stats=monitoring.sample(b.name); valid=stats.valid && stats.state==VIR_DOMAIN_RUNNING; value=stats.cpuUsage; state=stats.state;
+                if(stats.state!=VIR_DOMAIN_RUNNING) registry_.state(b.name,"unready");
+            } catch(const std::exception& e) { registry_.state(b.name,"unready"); events_.row({"sample_error",b.name,e.what()}); }
         }
-
-        currentReplicas_++;
-
-        LOG_INFO("VM created. Discovering IP");
-
-        std::string ip = getVMIPv4(newVMName);
-
-        LOG_INFO("%s IP: %s", newVMName.c_str(), ip.c_str());
-
-        LOG_INFO("Waiting for server application");
-
-        if (!waitForServer(ip, config_.vm.guestPort))
-        {
-            throw std::runtime_error(
-                "Server application did not become ready");
-        }
-
-        LOG_INFO("Server is ready. Registering VM");
-
-        VMManager::registerVM(ip);
-
-        activeVMs_.push_back(newVMName);
-        vmOverloadCounts_[newVMName] = 0;
-        vmLowLoadCounts_[newVMName] = 0;
-
-        for (auto &entry : vmOverloadCounts_)
-        {
-            entry.second = 0;
-        }
-
-        for (auto &entry : vmLowLoadCounts_)
-        {
-            entry.second = 0;
-        }
-
-        LOG_INFO("Registered %s (%s)", newVMName.c_str(), ip.c_str());
-
-        lastScaleTime_ = std::chrono::steady_clock::now();
-        hasScaled_ = true;
-
-        for (auto &entry : vmOverloadCounts_)
-        {
-            entry.second = 0;
-        }
+        policy_.observe(b.name,valid && !busy_,value);
+        cpu_.row({b.name,std::to_string(value),valid?"1":"0",std::to_string(state)});
+        if(valid) legacyCpu_.row({b.name,std::to_string(value),std::to_string(registry_.membership()["replicas"].size())});
+        high=high || policy_.overloaded(b.name);
+        low=low && policy_.underloaded(b.name);
+        readyOnly=readyOnly && b.state=="ready" && valid;
     }
-    catch (const std::exception &e)
-    {
-        LOG_ERROR("Scaling failed: %s", e.what());
-    }
-
-    scalingInProgress_ = false;
+    if(busy_ || stopped_) return;
+    if(high && readyOnly && backends.size()<config_.vm.maxReplicas) schedule("out");
+    else if(config_.scaling.scaleInEnabled && low && readyOnly && backends.size()>1) schedule("in");
 }
-
-void Autoscaler::scaleIn()
-{
-    if (currentReplicas_ <= 1 || scalingInProgress_)
-    {
-        return;
+void Autoscaler::scaleOut() {
+    if(registry_.snapshot().size()>=config_.vm.maxReplicas || stopped_) return;
+    auto name=config_.vm.replicaNamePrefix+std::to_string(nextId_++);
+    Resource r{name,name+"-"+owner_+".qcow2","creating"};
+    resources_.push_back(r); save(); registry_.put({name,"","provisioning",true,0});
+    events_.row({"scale_out_start",name,""});
+    try {
+        driver_.create(r,owner_);
+        auto address=ready(name);
+        resources_.back().phase="ready"; save();
+        registry_.put({name,address,"ready",true,0});
+        events_.row({"scale_out_ready",name,address});
+    } catch(const ResourceCollision&) {
+        // Nothing was created by this attempt; never clean up the colliding resource.
+        registry_.erase(name); eraseResource(name); save(); throw;
+    } catch(...) {
+        resources_.back().phase="cleanup"; save(); registry_.state(name,"cleanup");
+        // Removal verifies ownership; collisions with unrelated domains are never removed.
+        try { driver_.remove(r,owner_); registry_.erase(name); eraseResource(name); save(); }
+        catch(const std::exception& e) { events_.row({"cleanup_failed",name,e.what()}); }
+        throw;
     }
-
-    scalingInProgress_ = true;
-
-    if (activeVMs_.size() <= 1)
-    {
-        LOG_INFO("Only the initial VM remains");
-        scalingInProgress_ = false;
-        return;
+}
+void Autoscaler::scaleIn() {
+    if(stopped_ || resources_.empty()) return;
+    auto it=std::find_if(resources_.rbegin(),resources_.rend(),[](auto& r){return r.phase=="ready";});
+    if(it==resources_.rend()) return;
+    auto name=it->name; auto resource=*it;
+    events_.row({"scale_in_start",name,"draining"});
+    if(!registry_.drain(name,std::chrono::seconds(config_.scaling.drainTimeoutSeconds))) {
+        auto address=driver_.ip(name);
+        registry_.state(name,driver_.healthy(address)?"ready":"unready");
+        events_.row({"scale_in_cancelled",name,"drain timeout"}); return;
     }
-
-    std::string vmName = activeVMs_.back();
-
-    if (vmName == initialVMName_)
-    {
-        LOG_ERROR("Refusing to remove the initial VM");
-        scalingInProgress_ = false;
-        return;
-    }
-
-    try
-    {
-        LOG_INFO("Scaling in. Removing %s", vmName.c_str());
-
-        std::string ip = getVMIPv4(vmName);
-
-        // Stop sending new requests to this VM.
-        bool wasRegistered = VMManager::deregisterVM(ip);
-
-        if (!wasRegistered)
-        {
-            LOG_INFO(
-                "VM %s was already absent from the load balancer registry",
-                ip.c_str());
+    if(stopped_) { registry_.state(name,"ready"); return; }
+    it->phase="cleanup"; save(); registry_.state(name,"cleanup");
+    try {
+        driver_.remove(resource,owner_); registry_.erase(name); eraseResource(name); save();
+        events_.row({"scale_in_complete",name,""});
+    } catch(...) {
+        auto address=driver_.ip(name);
+        if(driver_.ownedDomain(resource,owner_) && driver_.healthy(address)) {
+            it->phase="ready"; save(); registry_.state(name,"ready");
         }
-
-        // Stop and undefine the VM, then delete its overlay.
-        if (!cloner_.remove(vmName))
-        {
-            if (wasRegistered)
-            {
-                VMManager::registerVM(ip);
-            }
-
-            throw std::runtime_error(
-                "Failed to remove VM: " + vmName);
-        }
-
-        activeVMs_.pop_back();
-
-        vmOverloadCounts_.erase(vmName);
-        vmLowLoadCounts_.erase(vmName);
-
-        currentReplicas_--;
-
-        lastScaleTime_ = std::chrono::steady_clock::now();
-        hasScaled_ = true;
-
-        LOG_INFO("Successfully removed %s", vmName.c_str());
-        LOG_INFO("Active replicas: %u", currentReplicas_);
+        throw;
     }
-    catch (const std::exception &e)
-    {
-        LOG_ERROR("Scale-in failed: %s", e.what());
-    }
-
-    scalingInProgress_ = false;
 }

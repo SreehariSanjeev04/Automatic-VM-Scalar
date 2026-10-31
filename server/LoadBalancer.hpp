@@ -1,19 +1,16 @@
-#ifndef LOADBALANCER_H
-#define LOADBALANCER_H
-
-#include <mutex>
+#pragma once
 #include "Config.hpp"
-
+#include "VMManager.hpp"
+#include "Metrics.hpp"
+#include "httplib.h"
 class LoadBalancer {
-    private:
-        int port;
-        int prevIndex = -1;
-        std::mutex index_mutex;
-    public:
-        explicit LoadBalancer(const Config &config);
-        Config config_;
-        void startLoadBalancer();
-        bool distributeWork(int value);
+    Config config_;
+    VMManager& registry_;
+    Csv requests_, legacyRequests_;
+    httplib::Server server_;
+public:
+    LoadBalancer(const Config&,VMManager&);
+    bool bind();
+    void listen();
+    void stop();
 };
-
-#endif

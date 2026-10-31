@@ -1,49 +1,34 @@
 #include "httplib.h"
-#include <iostream>
-#include <string>
+#include "Catalan.hpp"
+#include <charconv>
 #include <chrono>
-
-long long countBinaryTreesNaive(int n) {
-    if (n <= 0) return 1;
-
-    long long total = 0;
-    for (int i = 0; i < n; ++i) {
-        // Splitting n-1 remaining nodes between left (i) and right (n - 1 - i) subtrees
-        total += countBinaryTreesNaive(i) * countBinaryTreesNaive(n - 1 - i);
-    }
-    return total;
-}
-
+#include <cstdlib>
+#include <iostream>
 int main() {
-    httplib::Server svr;
-
-    svr.Get("/binary-trees", [](const httplib::Request& req, httplib::Response& res) {
-        if (!req.has_param("n")) {
-            std::cout << "[LOG] [ERROR] Request received without query parameter 'n'" << std::endl;
-            res.status = 400;
-            res.set_content("Missing parameter 'n'", "text/plain");
-            return;
+    httplib::Server server;
+    unsigned threads = 8;
+    if (const char* value = std::getenv("WORKER_THREADS")) {
+        auto end = value + std::char_traits<char>::length(value);
+        auto parsed = std::from_chars(value, end, threads);
+        if (parsed.ec != std::errc{} || parsed.ptr != end || threads == 0 || threads > 128) return 1;
+    }
+    server.new_task_queue = [threads] { return new httplib::ThreadPool(threads); };
+    server.Get("/health", [](const auto&, auto& response) { response.set_content("{\"status\":\"ok\",\"workload\":\"catalan\"}", "application/json"); });
+    server.Get("/binary-trees", [](const httplib::Request& request, httplib::Response& response) {
+        auto value = request.get_param_value("n"); int n = -1;
+        auto parsed = std::from_chars(value.data(), value.data()+value.size(), n);
+        if (value.empty() || parsed.ec != std::errc{} || parsed.ptr != value.data()+value.size() || n < 0 || n > 100) {
+            response.status = 400; response.set_content("Expected integer n from 0 to 100", "text/plain"); return;
         }
-
-        int n = std::stoi(req.get_param_value("n"));
-        std::cout << "[LOG] Request received | Input n = " << n << std::endl;
-        std::cout << "[LOG] Starting calculation..." << std::endl;
-
-        auto start = std::chrono::high_resolution_clock::now();
-        
-        long long result = countBinaryTreesNaive(n);
-        
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> duration = end - start;
-
-        std::cout << "[LOG] Calculation complete | Output = " << result 
-                  << " | Execution Time: " << duration.count() << " ms" << std::endl;
-
-        res.set_content(std::to_string(result), "text/plain");
+        try {
+            auto start = std::chrono::steady_clock::now();
+            auto result = countBinaryTreesNaive(n).str();
+            std::cout << "n=" << n << " elapsed_us=" << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count() << std::endl;
+            response.set_content(result, "text/plain");
+        } catch (const std::bad_alloc&) {
+            response.status = 503; response.set_content("Insufficient memory", "text/plain");
+        }
     });
-
-    std::cout << "[LOG] Server running on http://localhost:8080..." << std::endl;
-    svr.listen("0.0.0.0", 8080);
-
-    return 0;
+    std::cout << "Catalan server listening on 0.0.0.0:8080" << std::endl;
+    return server.listen("0.0.0.0", 8080) ? 0 : 1;
 }

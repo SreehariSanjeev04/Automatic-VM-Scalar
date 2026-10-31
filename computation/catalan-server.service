@@ -1,0 +1,16 @@
+[Unit]
+Description=Cloud AutoScalar Catalan worker
+After=network.target
+[Service]
+User=cloud-worker
+Group=cloud-worker
+ExecStart=/opt/cloud-autoscalar/catalan-server
+Environment=WORKER_THREADS=8
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+[Install]
+WantedBy=multi-user.target

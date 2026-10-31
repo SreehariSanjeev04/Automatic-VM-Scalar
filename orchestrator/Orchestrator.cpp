@@ -1,70 +1,44 @@
 #include "Orchestrator.hpp"
-#include "Logger.hpp"
-#include "LoadBalancer.hpp"
-#include "LibvirtConnection.hpp"
-#include "VMCloner.hpp"
-#include "VMMonitor.hpp"
 #include "Autoscaler.hpp"
-
+#include "LoadBalancer.hpp"
+#include <csignal>
+#include <filesystem>
+#include <iostream>
 #include <thread>
-
-void Orchestrator::run(const char *configPath)
-{
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+namespace { volatile std::sig_atomic_t interrupted=0; void signalHandler(int) { interrupted=1; } }
+int Orchestrator::run(const char* configPath) {
+    int lockFd=-1;
     try {
-        Config config = Config::load(configPath);
-        LOG_INFO("Loaded configuration from %s", configPath);
-
-        LOG_INFO("Connecting to libvirt");
-        LibvirtConnection connection(config.libvirt.uri.c_str());
-
-        if (!connection.get())
-        {
-            LOG_ERROR("Cannot start orchestrator without a libvirt connection");
-            return;
-        }
-
-        LOG_INFO("Connected to libvirt");
-        VMMonitor monitor(connection.get());
-
-        LOG_INFO("Initializing VM cloner");
-        VMCloner cloner(
-            connection.get(),
-            config.libvirt.storagePool
-        );
-
-        LOG_INFO("Initializing autoscaler");
-        LoadBalancer loadBalancer(config);
-
-        Autoscaler autoscaler(
-            connection.get(),
-            monitor,
-            cloner,
-            config
-        );
-
-        LOG_INFO("Autoscaler initialized");
-        LOG_INFO(
-            "Starting load balancer on port %u",
-            config.network.loadBalancerPort);
-        std::thread loadBalancerThread([&]() {
-            loadBalancer.startLoadBalancer();
-        });
-
-        LOG_INFO("Starting autoscaler");
-        std::thread autoscalerThread([&]() {
-            while (true) {
-                autoscaler.monitorAllVMs();
-                std::this_thread::sleep_for(
-                    std::chrono::seconds(config.scaling.monitorIntervalSeconds));
+        auto config=Config::load(configPath);
+        std::filesystem::create_directories(std::filesystem::path(config.stateFile).parent_path());
+        lockFd=::open((config.stateFile+".lock").c_str(),O_CREAT|O_RDWR,0600);
+        if(lockFd<0 || ::flock(lockFd,LOCK_EX|LOCK_NB)<0) throw std::runtime_error("Another orchestrator owns the lifecycle journal");
+        std::signal(SIGINT,signalHandler); std::signal(SIGTERM,signalHandler);
+        auto lifecycle=makeLibvirtDriver(config),monitor=makeLibvirtDriver(config);
+        VMManager registry; Autoscaler scaler(config,registry,*lifecycle);
+        scaler.initialize();
+        LoadBalancer server(config,registry);
+        if(!server.bind()) throw std::runtime_error("Cannot bind load balancer port");
+        scaler.start();
+        std::thread listener([&]{server.listen();});
+        std::cout<<"Ready: "<<config.vm.initialName<<"; listening on "<<config.network.loadBalancerPort<<std::endl;
+        try {
+            auto next=std::chrono::steady_clock::now();
+            while(!interrupted) {
+                if(std::chrono::steady_clock::now()>=next) {
+                    scaler.tick(*monitor); next=std::chrono::steady_clock::now()+std::chrono::seconds(config.scaling.monitorIntervalSeconds);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
-        });
-        loadBalancerThread.join();
-        autoscalerThread.join();
+        } catch(...) { server.stop();listener.join();scaler.stop();throw; }
+        server.stop(); listener.join(); scaler.stop();
+        ::close(lockFd); return 0;
+    } catch(const std::exception& e) {
+        std::cerr<<"[ORCHESTRATOR] "<<e.what()<<std::endl;
+        if(lockFd>=0) ::close(lockFd);
+        return 1;
     }
-    catch (const std::exception& e) {
-        LOG_ERROR("Orchestrator failed: %s", e.what());
-        return;
-    }
-
-    return;
 }

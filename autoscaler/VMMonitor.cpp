@@ -61,23 +61,10 @@ VMStats VMMonitor::monitor(const std::string &vmName)
     if (previous != previousReadings_.end())
     {
 
-        unsigned long long deltaCPU = 0;
+        auto usage = calculate(previous->second.cpuTime, info.cpuTime,
+                               previous->second.timestamp, currentTime, stats.vcpus);
+        if (usage) { stats.valid = true; stats.cpuUsage = *usage; }
 
-        if (info.cpuTime >= previous->second.cpuTime)
-        {
-            deltaCPU = info.cpuTime - previous->second.cpuTime;
-        }
-
-        unsigned long long deltaWall =
-            currentTime - previous->second.timestamp;
-
-        if (deltaWall > 0)
-        {
-            stats.cpuUsage =
-                (static_cast<double>(deltaCPU) /
-                 (static_cast<double>(deltaWall) * stats.vcpus)) *
-                100.0;
-        }
     }
 
     previousReadings_[vmName] = {
@@ -87,4 +74,11 @@ VMStats VMMonitor::monitor(const std::string &vmName)
     virDomainFree(domain);
 
     return stats;
+}
+std::optional<double> VMMonitor::calculate(unsigned long long previousCPU, unsigned long long currentCPU,
+    unsigned long long previousTime, unsigned long long currentTime, unsigned vcpus)
+{
+    if (!vcpus || currentTime <= previousTime || currentCPU < previousCPU) return {};
+    return 100.0 * static_cast<double>(currentCPU - previousCPU) /
+        (static_cast<double>(currentTime - previousTime) * vcpus);
 }

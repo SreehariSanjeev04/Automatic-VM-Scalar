@@ -1,78 +1,15 @@
 #include "LoadGenerator.hpp"
-#include "Config.hpp"
-
 #include <iostream>
-#include <string>
-#include <thread>
-
-int main(int argc, char **argv)
-{
-    const char *configPath = argc > 1 ? argv[1] : "autoscaler.config";
-
-    try
-    {
-        LoadGenerator::configure(Config::load(configPath));
-    }
-    catch (const std::exception &)
-    {
-        return 1;
-    }
-
-    std::string command;
-    std::thread trafficThread;
-
-    while (true)
-    {
-        std::cout << "> " << std::flush;
-
-        if (!std::getline(std::cin, command))
-        {
-            LoadGenerator::requestStop();
-            if (trafficThread.joinable())
-            {
-                trafficThread.join();
-            }
-            return 1;
+int main(int argc,char** argv) {
+    try {
+        LoadGenerator traffic(Config::load(argc>1?argv[1]:"autoscaler.config"));
+        std::cout<<"Commands: increase, decrease, stop, exit"<<std::endl;
+        std::string command;
+        while(std::getline(std::cin,command)) {
+            if(command=="exit") break;
+            if(command=="increase" || command=="decrease" || command=="stop")traffic.mode(command);
+            else std::cerr<<"Unknown command"<<std::endl;
         }
-
-        if (command == "increase")
-        {
-            if (LoadGenerator::isRunning())
-            {
-                continue;
-            }
-            if (trafficThread.joinable())
-            {
-                trafficThread.join();
-            }
-
-            LoadGenerator::resetStop();
-            trafficThread = std::thread(
-                LoadGenerator::generateHighTraffic);
-        }
-        else if (command == "decrease")
-        {
-            if (LoadGenerator::isRunning())
-            {
-                continue;
-            }
-            if (trafficThread.joinable())
-            {
-                trafficThread.join();
-            }
-
-            LoadGenerator::resetStop();
-            trafficThread = std::thread(
-                LoadGenerator::generateLowTraffic);
-        }
-        else if (command == "exit")
-        {
-            LoadGenerator::requestStop();
-            if (trafficThread.joinable())
-            {
-                trafficThread.join();
-            }
-            return 0;
-        }
-    }
+        traffic.stop();return 0;
+    }catch(const std::exception& e){std::cerr<<e.what()<<std::endl;return 1;}
 }
