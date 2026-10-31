@@ -7,7 +7,8 @@
 #include <cstdint>
 #include <optional>
 
-struct VMStats {
+struct VMStats
+{
     std::string name;
     double cpuUsage;
     bool valid = false;
@@ -15,11 +16,13 @@ struct VMStats {
     int state;
 };
 
-class VMMonitor {
+class VMMonitor
+{
 private:
     virConnectPtr connection_;
 
-    struct CPUReading {
+    struct CPUReading
+    {
         unsigned long long cpuTime;
         unsigned long long timestamp;
     };
@@ -33,7 +36,7 @@ public:
 
     static std::optional<double> calculate(unsigned long long previousCPU, unsigned long long currentCPU, unsigned long long previousTime, unsigned long long currentTime, unsigned vcpus);
 
-    VMStats monitor(const std::string& vmName);
+    VMStats monitor(const std::string &vmName);
 };
 
 #endif

@@ -63,8 +63,11 @@ VMStats VMMonitor::monitor(const std::string &vmName)
 
         auto usage = calculate(previous->second.cpuTime, info.cpuTime,
                                previous->second.timestamp, currentTime, stats.vcpus);
-        if (usage) { stats.valid = true; stats.cpuUsage = *usage; }
-
+        if (usage)
+        {
+            stats.valid = true;
+            stats.cpuUsage = *usage;
+        }
     }
 
     previousReadings_[vmName] = {
@@ -76,9 +79,10 @@ VMStats VMMonitor::monitor(const std::string &vmName)
     return stats;
 }
 std::optional<double> VMMonitor::calculate(unsigned long long previousCPU, unsigned long long currentCPU,
-    unsigned long long previousTime, unsigned long long currentTime, unsigned vcpus)
+                                           unsigned long long previousTime, unsigned long long currentTime, unsigned vcpus)
 {
-    if (!vcpus || currentTime <= previousTime || currentCPU < previousCPU) return {};
+    if (!vcpus || currentTime <= previousTime || currentCPU < previousCPU)
+        return {};
     return 100.0 * static_cast<double>(currentCPU - previousCPU) /
-        (static_cast<double>(currentTime - previousTime) * vcpus);
+           (static_cast<double>(currentTime - previousTime) * vcpus);
 }

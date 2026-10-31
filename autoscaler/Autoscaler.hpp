@@ -8,10 +8,11 @@
 #include <functional>
 #include <mutex>
 #include <thread>
-class Autoscaler {
+class Autoscaler
+{
     Config config_;
-    VMManager& registry_;
-    Driver& driver_;
+    VMManager &registry_;
+    Driver &driver_;
     Policy policy_;
     Csv cpu_, events_, legacyCpu_;
     std::string owner_;
@@ -25,18 +26,19 @@ class Autoscaler {
     std::atomic_uint epoch_{0};
     unsigned seenEpoch_ = 0;
     void save();
-    std::string ready(const std::string& name);
-    void eraseResource(const std::string& name);
+    std::string ready(const std::string &name);
+    void eraseResource(const std::string &name);
     void reconcile();
     void loop();
-    void schedule(const std::string& action);
+    void schedule(const std::string &action);
+
 public:
-    Autoscaler(const Config&, VMManager&, Driver&);
+    Autoscaler(const Config &, VMManager &, Driver &);
     ~Autoscaler();
     void initialize();
     void start();
     void stop();
-    void tick(Driver& monitoringDriver);
+    void tick(Driver &monitoringDriver);
     // Synchronous lifecycle entry points also used by fault-injected tests.
     void scaleOut();
     void scaleIn();

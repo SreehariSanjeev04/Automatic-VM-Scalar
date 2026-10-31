@@ -62,7 +62,10 @@ struct Config
         unsigned int lowRequestDelayMilliseconds = 2000;
     } traffic;
 
-    struct Metrics { std::string filePath = "results/vm_metrics.csv"; } metrics;
+    struct Metrics
+    {
+        std::string filePath = "results/vm_metrics.csv";
+    } metrics;
     std::string stateFile = ".autoscaler-state.json";
     std::string metricsDirectory = "runs/current";
     static Config load(const std::string &path);

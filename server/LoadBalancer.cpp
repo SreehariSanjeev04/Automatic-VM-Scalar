@@ -2,14 +2,19 @@
 #include "json.hpp"
 #include <chrono>
 #include <filesystem>
-using json=nlohmann::json;
-LoadBalancer::LoadBalancer(const Config& c,VMManager& registry)
-    : config_(c),registry_(registry),requests_(c.metricsDirectory,"proxy.csv","timestamp,backend,status,latency_ms,error"),
-      legacyRequests_(std::filesystem::path(c.metrics.filePath).parent_path().string(),"request_metrics.csv","timestamp_ms,backend_ip,latency_ms,success,http_status",true) {
-    server_.new_task_queue=[] { return new httplib::ThreadPool(16,16,128); };
-    server_.Get("/health",[](const auto&,auto& res){res.set_content("{\"status\":\"ok\"}","application/json");});
-    server_.Get("/replicas",[this](const auto&,auto& res){res.set_content(registry_.membership().dump(),"application/json");});
-    server_.Post(config_.network.loadBalancerPath,[this](const httplib::Request& req,httplib::Response& res){
+using json = nlohmann::json;
+LoadBalancer::LoadBalancer(const Config &c, VMManager &registry)
+    : config_(c), registry_(registry), requests_(c.metricsDirectory, "proxy.csv", "timestamp,backend,status,latency_ms,error"),
+      legacyRequests_(std::filesystem::path(c.metrics.filePath).parent_path().string(), "request_metrics.csv", "timestamp_ms,backend_ip,latency_ms,success,http_status", true)
+{
+    server_.new_task_queue = []
+    { return new httplib::ThreadPool(16, 16, 128); };
+    server_.Get("/health", [](const auto &, auto &res)
+                { res.set_content("{\"status\":\"ok\"}", "application/json"); });
+    server_.Get("/replicas", [this](const auto &, auto &res)
+                { res.set_content(registry_.membership().dump(), "application/json"); });
+    server_.Post(config_.network.loadBalancerPath, [this](const httplib::Request &req, httplib::Response &res)
+                 {
         auto start=std::chrono::steady_clock::now(); std::string backend,error,address;
         auto fail=[&](int code,const std::string& why) { res.status=code;error=why;res.set_content(json({{"status","failed"},{"error",why}}).dump(),"application/json"); };
         try {
@@ -39,9 +44,8 @@ LoadBalancer::LoadBalancer(const Config& c,VMManager& registry)
         catch(const std::exception& e) { fail(500,e.what()); }
         auto elapsed=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-start).count();
         requests_.row({backend,std::to_string(res.status),std::to_string(elapsed),error});
-        legacyRequests_.row({address,std::to_string(elapsed),res.status>=200 && res.status<300?"1":"0",std::to_string(res.status)});
-    });
+        legacyRequests_.row({address,std::to_string(elapsed),res.status>=200 && res.status<300?"1":"0",std::to_string(res.status)}); });
 }
-bool LoadBalancer::bind() { return server_.bind_to_port(config_.network.loadBalancerBindAddress,config_.network.loadBalancerPort); }
+bool LoadBalancer::bind() { return server_.bind_to_port(config_.network.loadBalancerBindAddress, config_.network.loadBalancerPort); }
 void LoadBalancer::listen() { server_.listen_after_bind(); }
 void LoadBalancer::stop() { server_.stop(); }

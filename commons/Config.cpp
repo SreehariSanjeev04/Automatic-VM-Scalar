@@ -13,69 +13,72 @@ using json = nlohmann::json;
 
 namespace
 {
-template <typename T>
-void readValue(
-    const json &object,
-    const char *key,
-    T &target)
-{
-    if (object.contains(key))
+    template <typename T>
+    void readValue(
+        const json &object,
+        const char *key,
+        T &target)
     {
-        const auto &value = object.at(key);
-        if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>) {
-            if (!value.is_number_integer() ||
-                (value.is_number_unsigned() && value.get<unsigned long long>() > static_cast<unsigned long long>(std::numeric_limits<T>::max())) ||
-                (!value.is_number_unsigned() && (value.get<long long>() < static_cast<long long>(std::numeric_limits<T>::lowest()) ||
-                    (value.get<long long>() >= 0 && static_cast<unsigned long long>(value.get<long long>()) > static_cast<unsigned long long>(std::numeric_limits<T>::max())))))
-                throw std::invalid_argument(std::string("Invalid integer: ") + key);
+        if (object.contains(key))
+        {
+            const auto &value = object.at(key);
+            if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
+            {
+                if (!value.is_number_integer() ||
+                    (value.is_number_unsigned() && value.get<unsigned long long>() > static_cast<unsigned long long>(std::numeric_limits<T>::max())) ||
+                    (!value.is_number_unsigned() && (value.get<long long>() < static_cast<long long>(std::numeric_limits<T>::lowest()) ||
+                                                     (value.get<long long>() >= 0 && static_cast<unsigned long long>(value.get<long long>()) > static_cast<unsigned long long>(std::numeric_limits<T>::max())))))
+                    throw std::invalid_argument(std::string("Invalid integer: ") + key);
+            }
+            if constexpr (std::is_floating_point_v<T>)
+            {
+                if (!value.is_number())
+                    throw std::invalid_argument(std::string("Invalid number: ") + key);
+            }
+            target = value.get<T>();
         }
-        if constexpr (std::is_floating_point_v<T>) {
-            if (!value.is_number()) throw std::invalid_argument(std::string("Invalid number: ") + key);
-        }
-        target = value.get<T>();
     }
-}
 
-void validate(const Config &config)
-{
-    if (config.libvirt.uri.empty() ||
-        config.libvirt.storagePool.empty() ||
-        config.libvirt.baseImage.empty() ||
-        config.vm.initialName.empty() ||
-        config.vm.vcpus == 0 ||
-        config.vm.memoryMiB == 0 ||
-        config.vm.initialReplicas != 1 ||
-        config.vm.maxReplicas < config.vm.initialReplicas ||
-        config.vm.guestPort == 0 || config.vm.guestPort > 65535 ||
-        config.vm.replicaNamePrefix.empty() ||
-        config.vm.workPath.empty() ||
-        config.network.loadBalancerHost.empty() ||
-        config.network.loadBalancerPort == 0 || config.network.loadBalancerPort > 65535 ||
-        config.network.loadBalancerBindAddress.empty() ||
-        config.network.loadBalancerPath.empty() ||
-        config.network.connectionTimeoutSeconds == 0 ||
-        config.network.requestTimeoutSeconds == 0 ||
-        config.network.clientTimeoutSeconds <= config.network.requestTimeoutSeconds ||
-        !std::isfinite(config.scaling.scaleOutCpuThreshold) || !std::isfinite(config.scaling.scaleInCpuThreshold) ||
-        config.scaling.scaleInCpuThreshold < 0 || config.scaling.scaleInCpuThreshold >= config.scaling.scaleOutCpuThreshold || config.scaling.scaleOutCpuThreshold > 100 ||
-        config.scaling.drainTimeoutSeconds == 0 || config.scaling.readinessTimeoutSeconds == 0 ||
-        !std::isfinite(config.traffic.highRate) || !std::isfinite(config.traffic.lowRate) ||
-        config.traffic.lowRate <= 0 || config.traffic.highRate <= config.traffic.lowRate ||
-        config.traffic.queueCapacity == 0 || config.traffic.highThreads > 128 ||
-        config.traffic.highValue < 0 || config.traffic.highValue > 100 || config.traffic.lowValue < 0 || config.traffic.lowValue > 100 ||
-        config.vm.workPath.front() != '/' || config.network.loadBalancerPath.front() != '/' ||
-        config.stateFile.empty() || config.metricsDirectory.empty() ||
-        config.scaling.monitorIntervalSeconds == 0 ||
-        config.scaling.requiredOverloadCount == 0 ||
-        config.scaling.requiredLowLoadCount == 0 ||
-        config.traffic.highThreads == 0 ||
-        config.traffic.highRequestsPerThread == 0 ||
-        config.traffic.lowRequestsPerThread == 0 ||
-        config.traffic.lowRequestDelayMilliseconds == 0)
+    void validate(const Config &config)
     {
-        throw std::invalid_argument("autoscaler.config contains invalid values");
+        if (config.libvirt.uri.empty() ||
+            config.libvirt.storagePool.empty() ||
+            config.libvirt.baseImage.empty() ||
+            config.vm.initialName.empty() ||
+            config.vm.vcpus == 0 ||
+            config.vm.memoryMiB == 0 ||
+            config.vm.initialReplicas != 1 ||
+            config.vm.maxReplicas < config.vm.initialReplicas ||
+            config.vm.guestPort == 0 || config.vm.guestPort > 65535 ||
+            config.vm.replicaNamePrefix.empty() ||
+            config.vm.workPath.empty() ||
+            config.network.loadBalancerHost.empty() ||
+            config.network.loadBalancerPort == 0 || config.network.loadBalancerPort > 65535 ||
+            config.network.loadBalancerBindAddress.empty() ||
+            config.network.loadBalancerPath.empty() ||
+            config.network.connectionTimeoutSeconds == 0 ||
+            config.network.requestTimeoutSeconds == 0 ||
+            config.network.clientTimeoutSeconds <= config.network.requestTimeoutSeconds ||
+            !std::isfinite(config.scaling.scaleOutCpuThreshold) || !std::isfinite(config.scaling.scaleInCpuThreshold) ||
+            config.scaling.scaleInCpuThreshold < 0 || config.scaling.scaleInCpuThreshold >= config.scaling.scaleOutCpuThreshold || config.scaling.scaleOutCpuThreshold > 100 ||
+            config.scaling.drainTimeoutSeconds == 0 || config.scaling.readinessTimeoutSeconds == 0 ||
+            !std::isfinite(config.traffic.highRate) || !std::isfinite(config.traffic.lowRate) ||
+            config.traffic.lowRate <= 0 || config.traffic.highRate <= config.traffic.lowRate ||
+            config.traffic.queueCapacity == 0 || config.traffic.highThreads > 128 ||
+            config.traffic.highValue < 0 || config.traffic.highValue > 100 || config.traffic.lowValue < 0 || config.traffic.lowValue > 100 ||
+            config.vm.workPath.front() != '/' || config.network.loadBalancerPath.front() != '/' ||
+            config.stateFile.empty() || config.metricsDirectory.empty() ||
+            config.scaling.monitorIntervalSeconds == 0 ||
+            config.scaling.requiredOverloadCount == 0 ||
+            config.scaling.requiredLowLoadCount == 0 ||
+            config.traffic.highThreads == 0 ||
+            config.traffic.highRequestsPerThread == 0 ||
+            config.traffic.lowRequestsPerThread == 0 ||
+            config.traffic.lowRequestDelayMilliseconds == 0)
+        {
+            throw std::invalid_argument("autoscaler.config contains invalid values");
+        }
     }
-}
 }
 
 Config Config::load(const std::string &path)
@@ -89,9 +92,11 @@ Config Config::load(const std::string &path)
     json document;
     input >> document;
 
-    if (!document.is_object()) throw std::invalid_argument("Configuration must be an object");
+    if (!document.is_object())
+        throw std::invalid_argument("Configuration must be an object");
     for (const auto *section : {"libvirt", "vm", "scaling", "network", "traffic", "metrics"})
-        if (document.contains(section) && !document.at(section).is_object()) throw std::invalid_argument(std::string("Invalid section: ") + section);
+        if (document.contains(section) && !document.at(section).is_object())
+            throw std::invalid_argument(std::string("Invalid section: ") + section);
     Config config;
     const auto &libvirt = document.value("libvirt", json::object());
     const auto &vm = document.value("vm", json::object());
@@ -145,7 +150,8 @@ Config Config::load(const std::string &path)
         throw std::invalid_argument("Conflicting scale-in settings");
     if (scaling.contains("cooldownSeconds") && scaling.contains("cooldown_seconds") && scaling["cooldownSeconds"] != scaling["cooldown_seconds"])
         throw std::invalid_argument("Conflicting cooldown settings");
-    if (!scaling.contains("cooldown_seconds")) readValue(scaling, "cooldownSeconds", config.scaling.cooldownSeconds);
+    if (!scaling.contains("cooldown_seconds"))
+        readValue(scaling, "cooldownSeconds", config.scaling.cooldownSeconds);
     readValue(traffic, "high_request_delay_milliseconds", config.traffic.highRequestDelayMilliseconds);
     if (!traffic.contains("high_rate") && traffic.contains("high_request_delay_milliseconds") && config.traffic.highRequestDelayMilliseconds)
         config.traffic.highRate = 1000.0 * config.traffic.highThreads / config.traffic.highRequestDelayMilliseconds;
@@ -156,11 +162,15 @@ Config Config::load(const std::string &path)
     readValue(traffic, "high_rate", config.traffic.highRate);
     readValue(traffic, "low_rate", config.traffic.lowRate);
     readValue(traffic, "queue_capacity", config.traffic.queueCapacity);
-    if (config.stateFile.empty() || config.metricsDirectory.empty() || config.metrics.filePath.empty()) throw std::invalid_argument("State and metrics paths must not be empty");
+    if (config.stateFile.empty() || config.metricsDirectory.empty() || config.metrics.filePath.empty())
+        throw std::invalid_argument("State and metrics paths must not be empty");
     const auto directory = std::filesystem::absolute(path).parent_path();
-    if (std::filesystem::path(config.stateFile).is_relative()) config.stateFile = (directory / config.stateFile).string();
-    if (std::filesystem::path(config.metricsDirectory).is_relative()) config.metricsDirectory = (directory / config.metricsDirectory).string();
-    if (std::filesystem::path(config.metrics.filePath).is_relative()) config.metrics.filePath = (directory / config.metrics.filePath).string();
+    if (std::filesystem::path(config.stateFile).is_relative())
+        config.stateFile = (directory / config.stateFile).string();
+    if (std::filesystem::path(config.metricsDirectory).is_relative())
+        config.metricsDirectory = (directory / config.metricsDirectory).string();
+    if (std::filesystem::path(config.metrics.filePath).is_relative())
+        config.metrics.filePath = (directory / config.metrics.filePath).string();
     validate(config);
     return config;
 }

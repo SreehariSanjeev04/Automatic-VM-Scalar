@@ -5,38 +5,38 @@
 
 namespace
 {
-std::string escapeXml(const std::string &value)
-{
-    std::string escaped;
-    escaped.reserve(value.size());
-
-    for (const char character : value)
+    std::string escapeXml(const std::string &value)
     {
-        switch (character)
-        {
-        case '&':
-            escaped += "&amp;";
-            break;
-        case '\'':
-            escaped += "&apos;";
-            break;
-        case '"':
-            escaped += "&quot;";
-            break;
-        case '<':
-            escaped += "&lt;";
-            break;
-        case '>':
-            escaped += "&gt;";
-            break;
-        default:
-            escaped += character;
-            break;
-        }
-    }
+        std::string escaped;
+        escaped.reserve(value.size());
 
-    return escaped;
-}
+        for (const char character : value)
+        {
+            switch (character)
+            {
+            case '&':
+                escaped += "&amp;";
+                break;
+            case '\'':
+                escaped += "&apos;";
+                break;
+            case '"':
+                escaped += "&quot;";
+                break;
+            case '<':
+                escaped += "&lt;";
+                break;
+            case '>':
+                escaped += "&gt;";
+                break;
+            default:
+                escaped += character;
+                break;
+            }
+        }
+
+        return escaped;
+    }
 }
 
 std::string DomainXMLBuilder::build(

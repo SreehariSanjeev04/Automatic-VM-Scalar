@@ -4,17 +4,18 @@
 #include <libvirt/libvirt.h>
 #include <stdexcept>
 
-class LibvirtConnection {
+class LibvirtConnection
+{
 private:
     virConnectPtr conn_;
 
 public:
-    explicit LibvirtConnection(const char* uri);
+    explicit LibvirtConnection(const char *uri);
 
     ~LibvirtConnection();
 
-    LibvirtConnection(const LibvirtConnection&) = delete;
-    LibvirtConnection& operator=(const LibvirtConnection&) = delete;
+    LibvirtConnection(const LibvirtConnection &) = delete;
+    LibvirtConnection &operator=(const LibvirtConnection &) = delete;
 
     virConnectPtr get() const;
 };
